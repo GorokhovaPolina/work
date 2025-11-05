@@ -11,11 +11,10 @@ class GeometricPoseCalculator:
         """
         Расчет pitch, yaw, roll. Mode: 'geometric' (default), 'coeffs' (как C++), 'pnp' (точнее с 3D моделью)
         """
-        if landmarks is None:
-            return {'yaw': 0, 'pitch': 0, 'roll': 0}
+        if landmarks is None or len(landmarks) != 4:
+            return None
         
         if mode == 'coeffs':
-            # Как в C++: только coeffs (sinB, cosMinor)
             left_eye = landmarks['left_eye']
             right_eye = landmarks['right_eye']
             nose = landmarks['nose']
@@ -52,7 +51,7 @@ class GeometricPoseCalculator:
             # solvePnP
             success, rvec, tvec = cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs)
             if not success:
-                return {'yaw': 0, 'pitch': 0, 'roll': 0}
+                return None
             
             # Rotation vector to Euler
             rot_mat, _ = cv2.Rodrigues(rvec)
