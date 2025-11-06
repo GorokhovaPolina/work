@@ -1,13 +1,13 @@
-from pose_calculator import GeometricPoseCalculator
-from json_parser import load_keypoints_from_json
+from pose_calculator import HeadPoseCalculator
+from json_parser import load_keypoints
 
-class MobileHeadPoseEstimator:
-    def __init__(self):
-        self.pose_calc = GeometricPoseCalculator()
+class Estimator:
+    def __init__(self, mode: str = 'pnp'):
+        self.calc = HeadPoseCalculator()
+        self.mode = mode
 
-    def process_json(self, json_path: str):
-        """Принимает путь к JSON → возвращает pose или None"""
-        landmarks = load_keypoints_from_json(json_path)
-        if landmarks is None:
+    def process(self, path: str):
+        data = load_keypoints(path)
+        if not data:
             return None
-        return self.pose_calc.calculate_pose(landmarks)
+        return self.calc.calculate(data, mode=self.mode)
