@@ -35,7 +35,7 @@ class HeadPoseCalculator:
         K = np.array([[w, 0, w/2], [0, h, h/2], [0, 0, 1]], dtype=np.float32)
         dist = np.zeros((4,1))
 
-        success, rvec, tvec = cv2.solvePnP(model, pts, K, dist)
+        success, rvec, tvec = cv2.solvePnP(model, pts, K, dist, flags=cv2.SOLVEPNP_EPNP)
         if not success:
             return {'error': 'solvePnP failed'}
 
