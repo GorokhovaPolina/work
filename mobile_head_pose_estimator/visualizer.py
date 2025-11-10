@@ -148,6 +148,6 @@ def test_elegant_visualization(img, json_data):
     }
     
     # Визуализация
-    visualize_elegant(img, nose, result)
+    visualize(img, nose, result)
     
     return img

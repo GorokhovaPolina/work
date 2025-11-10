@@ -18,7 +18,7 @@ def main():
         if not result or 'error' in result:
             continue
         
-        img_path = path.replace('.json', '.jpg').replace('jsons', 'frames')
+        img_path = path.replace('.json', '.jpg').replace('jsons', '../mydataset')
         img = cv2.imread(img_path)
         if img is None: continue
         
