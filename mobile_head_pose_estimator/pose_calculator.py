@@ -34,16 +34,16 @@ class GeometricPoseCalculator:
             return {'error': 'solvePnP failed'}
 
         R, _ = cv2.Rodrigues(rvec)
-        sy = math.sqrt(R[0,0]**2 + R[1,0]**2)
+        sy = math.sqrt(R[2,0]**2 + R[2,2]**2)
         singular = sy < 1e-6
 
         if not singular:
-            yaw = math.atan2(R[1,0], R[0,0])
-            pitch = math.atan2(-R[2,0], sy)
-            roll = math.atan2(R[2,1], R[2,2])
+            yaw = math.atan2(R[2,0], R[2,2])
+            pitch = math.atan2(-R[2,1], sy)
+            roll = math.atan2(R[1,1], R[0,1])
         else:
-            yaw = math.atan2(-R[1,2], R[1,1])
-            pitch = math.atan2(-R[2,0], sy)
+            yaw = math.atan2(-R[2,0], R[2,2])
+            pitch = math.atan2(-R[2,1], sy)
             roll = 0
 
         return {
