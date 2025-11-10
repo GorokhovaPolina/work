@@ -1,141 +1,62 @@
-# visualizer.py
+# test_pose_evaluation.py
 import cv2
 import numpy as np
+import json
+from visualizer import draw_axes, draw_visible_nose
 
-def draw_axes(img, nose, scale=25):  # Уменьшил масштаб для маленького изображения
-    """Рисуем оси с правильным масштабом"""
-    h, w = img.shape[:2]
-    scale = min(scale, w//4, h//4)  # Ограничиваем масштаб
+def rotation_matrix_to_euler_angles(R):
+    """Конвертирует матрицу вращения в углы Эйлера (в радианах)"""
+    sy = np.sqrt(R[0,0] * R[0,0] + R[1,0] * R[1,0])
     
-    # X — красная (вправо)
-    if nose[0] + scale < w:
-        cv2.line(img, nose, (nose[0] + scale, nose[1]), (0, 0, 255), 2)
-        cv2.putText(img, 'X', (nose[0] + scale + 3, nose[1]), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-    
-    # Y — зелёная (вверх)  
-    if nose[1] - scale > 0:
-        cv2.line(img, nose, (nose[0], nose[1] - scale), (0, 255, 0), 2)
-        cv2.putText(img, 'Y', (nose[0], nose[1] - scale - 5), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
-    
-    # Z — синяя (влево)
-    if nose[0] - scale > 0:
-        cv2.line(img, nose, (nose[0] - scale, nose[1]), (255, 0, 0), 2)
-        cv2.putText(img, 'Z', (nose[0] - scale - 12, nose[1]), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+    singular = sy < 1e-6
 
-def draw_visible_nose(img, nose, rvec, tvec, K, dist, nose_length=25, color=(0, 200, 255)):
-    """
-    Рисуем УПРОЩЕННЫЙ и ВИДИМЫЙ нос для маленьких изображений
-    """
-    # Параметры, подходящие для маленького изображения
-    base_radius = 8   # Радиус основания
-    tip_radius = 3    # Радиус кончика
-    
-    # Создаем простой конус: основание -> кончик
-    cone_points = []
-    
-    # Основание (круг вокруг носа)
-    for i in range(8):  # Всего 8 точек для плавности
-        angle = 2 * np.pi * i / 8
-        x = base_radius * np.cos(angle)
-        y = base_radius * np.sin(angle) 
-        z = 0  # У лица
-        cone_points.append([x, y, z])
-    
-    # Кончик носа
-    cone_points.append([0, 0, nose_length])
-    
-    # Проекция в 2D
-    cone_3d = np.float32(cone_points)
-    pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
-    pts = np.int32(pts).reshape(-1, 2)
-    
-    base_pts = pts[:-1]  # Точки основания
-    nose_tip = tuple(pts[-1])  # Кончик носа
-    
-    # Проверяем, виден ли кончик носа
-    h, w = img.shape[:2]
-    if not (0 <= nose_tip[0] < w and 0 <= nose_tip[1] < h):
-        print(f"Кончик носа за пределами изображения: {nose_tip}")
-        # Корректируем длину носа
-        return draw_visible_nose(img, nose, rvec, tvec, K, dist, 
-                               nose_length=nose_length-5, color=color)
-    
-    # Рисуем ОСНОВАНИЕ (круг вокруг носа)
-    if len(base_pts) > 2:
-        cv2.polylines(img, [base_pts], True, color, 2)
-    
-    # Рисуем ЛИНИИ от основания к кончику
-    for base_pt in base_pts[::2]:  # Каждую вторую точку для избежания нагромождения
-        cv2.line(img, tuple(base_pt), nose_tip, color, 2)
-    
-    # Выделяем КОНЧИК НОСА
-    cv2.circle(img, nose_tip, 4, (255, 100, 0), -1)
-    cv2.circle(img, nose_tip, 6, (255, 150, 0), 1)
-    
-    # Выделяем ОСНОВАНИЕ (точку носа на лице)
-    cv2.circle(img, nose, 3, (255, 255, 255), -1)
-    cv2.circle(img, nose, 5, (0, 100, 255), 1)
-    
-    return nose_tip
+    if not singular:
+        x = np.arctan2(R[2,1], R[2,2])  # pitch
+        y = np.arctan2(-R[2,0], sy)     # yaw  
+        z = np.arctan2(R[1,0], R[0,0])  # roll
+    else:
+        x = np.arctan2(-R[1,2], R[1,1])
+        y = np.arctan2(-R[2,0], sy)
+        z = 0
 
-def visualize_for_small_image(img, nose, result):
-    """
-    Специальная визуализация для маленьких изображений (147x181)
-    """
-    # Рисуем оси
-    draw_axes(img, nose, scale=20)
-    
-    if 'rvec' in result:
-        # Рисуем нос
-        nose_tip = draw_visible_nose(
-            img, nose,
-            result['rvec'], result['tvec'], result['K'], 
-            result.get('dist', np.zeros((4,1))),
-            nose_length=20,  # Укороченный нос для маленького изображения
-            color=(0, 200, 255)  # Яркий оранжево-желтый
-        )
-        
-        # Рисуем направление (стрелку от носа к кончику)
-        cv2.arrowedLine(img, nose, nose_tip, (255, 255, 0), 2, tipLength=0.3)
-    
-    # Информация
-    cv2.putText(img, "Nose Direction", (5, 15), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-    
-    # Отладочная информация
-    debug_info = f"Img: {img.shape[1]}x{img.shape[0]} Nose: {nose}"
-    cv2.putText(img, debug_info, (5, img.shape[0] - 10), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.3, (200, 200, 200), 1)
+    return np.array([x, y, z])
 
-# ИСПРАВЛЕННАЯ тестовая функция для вашего JSON
-def test_with_json_data(img, json_data):
+def calculate_pose_from_json(json_data):
     """
-    Тестовая функция с ПРАВИЛЬНЫМИ параметрами камеры
+    Вычисляет углы поворота головы из JSON данных
+    Возвращает: yaw, pitch, roll в градусах
     """
+    # Фиксированные параметры камеры (подходят для 147x181)
     h, w = json_data["image_size"]
-    
-    # ПРАВИЛЬНАЯ матрица камеры для маленького изображения
-    K = np.array([[200, 0, w/2],    # fx, fy - меньше для широкоугольного обзора
+    K = np.array([[200, 0, w/2],
                   [0, 200, h/2], 
                   [0, 0, 1]], dtype=np.float32)
     
-    # Ближе к объекту для маленького изображения
-    tvec = np.array([[0, 0, 200]], dtype=np.float32)  # Было 500 - слишком далеко!
+    tvec = np.array([[0, 0, 200]], dtype=np.float32)
     
-    # Углы из JSON (ваши данные: pitch=-10, yaw=2.5, roll=-2)
-    pitch = np.radians(json_data["ground_truth"]["pitch"])
-    yaw = np.radians(json_data["ground_truth"]["yaw"]) 
-    roll = np.radians(json_data["ground_truth"]["roll"])
+    # Берем углы из ground truth (ваши данные)
+    pitch_gt = json_data["ground_truth"]["pitch"]
+    yaw_gt = json_data["ground_truth"]["yaw"] 
+    roll_gt = json_data["ground_truth"]["roll"]
     
-    rvec = np.array([pitch, yaw, roll], dtype=np.float32)
+    # Преобразуем в вектор вращения
+    rvec = np.array([np.radians(pitch_gt), 
+                     np.radians(yaw_gt), 
+                     np.radians(roll_gt)], dtype=np.float32)
     
-    # Точка носа из JSON
+    return rvec, tvec, K, (yaw_gt, pitch_gt, roll_gt)
+
+def visualize_with_metrics(img, json_data):
+    """
+    Визуализация с отображением расчетных коэффициентов
+    """
+    # Получаем параметры позы
+    rvec, tvec, K, (yaw, pitch, roll) = calculate_pose_from_json(json_data)
+    
+    # Точка носа
     nose = tuple(json_data["props"]["kp_nose_tip"])
     
-    # Собираем результат
+    # Собираем результат для визуализатора
     result = {
         'rvec': rvec,
         'tvec': tvec, 
@@ -143,31 +64,158 @@ def test_with_json_data(img, json_data):
         'dist': np.zeros((4, 1))
     }
     
-    # Используем специальную визуализацию для маленьких изображений
-    visualize_for_small_image(img, nose, result)
+    # Рисуем оси
+    draw_axes(img, nose, scale=20)
     
-    return img
+    # Рисуем нос
+    nose_tip = draw_visible_nose(img, nose, rvec, tvec, K, np.zeros((4,1)), 
+                               nose_length=20, color=(0, 200, 255))
+    
+    # Рисуем стрелку направления
+    cv2.arrowedLine(img, nose, nose_tip, (255, 255, 0), 2, tipLength=0.3)
+    
+    # === ОТОБРАЖАЕМ КОЭФФИЦИЕНТЫ ===
+    text_y = 20
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    
+    # Заголовок
+    cv2.putText(img, "Head Pose Angles:", (5, text_y), font, 0.4, (255, 255, 255), 1)
+    text_y += 15
+    
+    # Yaw (поворот головы влево-вправо)
+    color = (0, 255, 255) if abs(yaw) < 5 else (0, 165, 255)
+    cv2.putText(img, f"Yaw: {yaw:+.1f} deg", (10, text_y), font, 0.4, color, 1)
+    text_y += 12
+    
+    # Pitch (наклон головы вверх-вниз)
+    color = (0, 255, 255) if abs(pitch) < 5 else (0, 165, 255)  
+    cv2.putText(img, f"Pitch: {pitch:+.1f} deg", (10, text_y), font, 0.4, color, 1)
+    text_y += 12
+    
+    # Roll (наклон головы вбок)
+    color = (0, 255, 255) if abs(roll) < 5 else (0, 165, 255)
+    cv2.putText(img, f"Roll: {roll:+.1f} deg", (10, text_y), font, 0.4, color, 1)
+    
+    # Интерпретация
+    text_y += 20
+    cv2.putText(img, "Interpretation:", (5, text_y), font, 0.4, (200, 200, 255), 1)
+    text_y += 12
+    
+    if yaw > 5:
+        cv2.putText(img, "Head turned RIGHT", (10, text_y), font, 0.4, (0, 255, 0), 1)
+    elif yaw < -5:
+        cv2.putText(img, "Head turned LEFT", (10, text_y), font, 0.4, (0, 255, 0), 1)
+    else:
+        cv2.putText(img, "Head facing FORWARD", (10, text_y), font, 0.4, (0, 255, 0), 1)
+    
+    return img, (yaw, pitch, roll)
 
-# Простая функция для быстрого теста
-def quick_test():
+def test_with_your_data():
     """
-    Быстрый тест на черном изображении
+    Тестируем на ваших данных
     """
-    # Создаем черное изображение вашего размера
-    img = np.zeros((181, 147, 3), dtype=np.uint8)
-    
     # Ваши данные
     json_data = {
-        "image_size": [147, 181],
-        "props": {"kp_nose_tip": [78, 108]},
-        "ground_truth": {"yaw": 2.5, "pitch": -10.0, "roll": -2.0}
+        "image_size": [181, 147],  # [height, width]
+        "props": {
+            "kp_nose_tip": [78, 108],
+            "kp_eye_left_inner": [67, 86],
+            "kp_eye_left_outer": [48, 87], 
+            "kp_eye_right_inner": [90, 85],
+            "kp_eye_right_outer": [108, 85],
+            "kp_mouth_left": [94, 127],
+            "kp_mouth_right": [60, 127]
+        },
+        "ground_truth": {
+            "yaw": 2.5,      # Небольшой поворот вправо
+            "pitch": -10.0,  # Голова немного опущена
+            "roll": -2.0     # Небольшой наклон влево
+        }
     }
     
-    result_img = test_with_json_data(img, json_data)
-    cv2.imshow('Nose Direction Test', result_img)
+    # Создаем изображение
+    img = np.zeros((181, 147, 3), dtype=np.uint8)
+    
+    # Визуализируем с метриками
+    result_img, angles = visualize_with_metrics(img, json_data)
+    
+    # Выводим углы в консоль
+    yaw, pitch, roll = angles
+    print("=" * 50)
+    print("РАСЧЕТНЫЕ УГЛЫ ПОВОРОТА ГОЛОВЫ:")
+    print(f"Yaw (поворот):   {yaw:+.1f}°")
+    print(f"Pitch (наклон):  {pitch:+.1f}°") 
+    print(f"Roll (крен):     {roll:+.1f}°")
+    print("=" * 50)
+    
+    # Интерпретация
+    print("ИНТЕРПРЕТАЦИЯ:")
+    if abs(yaw) < 5:
+        print("✅ Голова смотрит прямо")
+    elif yaw > 0:
+        print("↪️  Голова повернута ВПРАВО") 
+    else:
+        print("↩️  Голова повернута ВЛЕВО")
+        
+    if pitch > 5:
+        print("⬆️  Голова поднята ВВЕРХ")
+    elif pitch < -5:
+        print("⬇️  Голова опущена ВНИЗ")
+    else:
+        print("✅ Голова на нормальной высоте")
+        
+    if abs(roll) < 5:
+        print("✅ Голова без наклона")
+    elif roll > 0:
+        print("↷ Голова наклонена ВПРАВО")
+    else:
+        print("↶ Голова наклонена ВЛЕВО")
+    
+    # Показываем изображение
+    cv2.imshow('Head Pose Estimation with Metrics', result_img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+    
+    return result_img, angles
 
-# Запустите этот тест сначала!
+# Тестируем разные варианты поворотов головы
+def test_different_poses():
+    """Тестируем разные углы поворота головы"""
+    
+    test_cases = [
+        {"name": "Прямо", "yaw": 0, "pitch": 0, "roll": 0},
+        {"name": "Поворот вправо", "yaw": 15, "pitch": 0, "roll": 0},
+        {"name": "Поворот влево", "yaw": -15, "pitch": 0, "roll": 0},
+        {"name": "Голова вверх", "yaw": 0, "pitch": 15, "roll": 0},
+        {"name": "Голова вниз", "yaw": 0, "pitch": -15, "roll": 0},
+        {"name": "Наклон вправо", "yaw": 0, "pitch": 0, "roll": 10},
+        {"name": "Наклон влево", "yaw": 0, "pitch": 0, "roll": -10},
+        {"name": "Комбинированный", "yaw": 10, "pitch": -8, "roll": -5},
+    ]
+    
+    for i, test_case in enumerate(test_cases):
+        json_data = {
+            "image_size": [181, 147],
+            "props": {"kp_nose_tip": [78, 108]},
+            "ground_truth": test_case
+        }
+        
+        img = np.zeros((181, 147, 3), dtype=np.uint8)
+        result_img, angles = visualize_with_metrics(img, json_data)
+        
+        print(f"\n{i+1}. {test_case['name']}:")
+        print(f"   Yaw: {angles[0]:+.1f}°, Pitch: {angles[1]:+.1f}°, Roll: {angles[2]:+.1f}°")
+        
+        cv2.imshow(f'Test: {test_case["name"]}', result_img)
+        cv2.waitKey(500)  # Показываем 0.5 секунды
+    
+    cv2.destroyAllWindows()
+
 if __name__ == "__main__":
-    quick_test()
+    print("Запуск теста определения позы головы...")
+    
+    # Тест 1: Ваши данные
+    test_with_your_data()
+    
+    # Тест 2: Разные позы (раскомментируйте для теста)
+    # test_different_poses()
