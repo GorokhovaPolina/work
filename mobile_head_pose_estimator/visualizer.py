@@ -3,236 +3,234 @@ import cv2
 import numpy as np
 
 def draw_axes(img, nose, scale=50):
-    """Рисует красивые оси с подписями"""
-    # X — красная
-    cv2.line(img, nose, (nose[0] + scale, nose[1]), (0, 0, 255), 3)
+    """Рисует красивые оси с подписами"""
+    # X — красная (вправо)
+    cv2.line(img, nose, (nose[0] + scale, nose[1]), (0, 0, 255), 2)
     cv2.putText(img, 'X', (nose[0] + scale + 5, nose[1]), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
     
-    # Y — зелёная  
-    cv2.line(img, nose, (nose[0], nose[1] - scale), (0, 255, 0), 3)
+    # Y — зелёная (вверх)  
+    cv2.line(img, nose, (nose[0], nose[1] - scale), (0, 255, 0), 2)
     cv2.putText(img, 'Y', (nose[0], nose[1] - scale - 10), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
     
-    # Z — синяя
-    cv2.line(img, nose, (nose[0] - scale, nose[1]), (255, 0, 0), 3)
+    # Z — синяя (влево - вглубь экрана)
+    cv2.line(img, nose, (nose[0] - scale, nose[1]), (255, 0, 0), 2)
     cv2.putText(img, 'Z', (nose[0] - scale - 15, nose[1]), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
-def create_gradient_mask(shape, center, radius, inner_color, outer_color):
-    """Создает градиентную маску для плавного перехода цвета"""
-    mask = np.zeros((*shape, 3), dtype=np.uint8)
-    y, x = np.ogrid[:shape[0], :shape[1]]
-    dist_from_center = np.sqrt((x - center[0])**2 + (y - center[1])**2)
-    
-    # Нормализуем расстояния и инвертируем (1 в центре, 0 на краю)
-    dist_norm = np.clip(1 - (dist_from_center / radius), 0, 1)
-    
-    # Интерполяция цветов
-    for i in range(3):
-        mask[..., i] = (inner_color[i] * dist_norm + 
-                       outer_color[i] * (1 - dist_norm)).astype(np.uint8)
-    
-    return mask
-
-def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30, 
-                    color=(0, 255, 255), segments=48, gradient=True):
+def draw_burattino_nose(img, nose, rvec, tvec, K, dist, nose_length=40, base_radius=15, tip_radius=8, color=(0, 200, 255)):
     """
-    Рисует красивый конус с градиентами и эффектами
+    Рисует нос как у Буратино - выступающий конус от лица
+    
+    - nose_length: длина носа (вперед по Z-оси)
+    - base_radius: радиус основания носа (у лица)
+    - tip_radius: радиус кончика носа
+    - color: цвет носа (оранжево-желтый)
     """
-    # Генерация точек основания
-    base_points = []
+    segments = 16
+    
+    # Создаем точки для цилиндра/конуса носа
+    nose_points = []
+    
+    # Базовое кольцо (у лица)
     for i in range(segments):
         angle = 2 * np.pi * i / segments
-        x = radius * np.cos(angle)
-        y = radius * np.sin(angle)
-        base_points.append([x, y, length])
+        x = base_radius * np.cos(angle)
+        y = base_radius * np.sin(angle)
+        z = 0  # У лица
+        nose_points.append([x, y, z])
     
-    # Вершина конуса (нос) + точки основания
-    cone_3d = np.float32([[0, 0, 0]] + base_points)
-    
-    # Проекция в 2D
-    pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
-    pts = np.int32(pts).reshape(-1, 2)
-    
-    nose_pt = tuple(pts[0])
-    base_pts = pts[1:]
-    
-    # Создаем маску для рисования
-    overlay = img.copy()
-    
-    # Рисуем основание
-    if gradient and len(base_pts) > 2:
-        try:
-            # Вычисляем центр и радиус основания
-            base_center = np.mean(base_pts, axis=0).astype(int)
-            base_radius = max(10, int(0.8 * np.mean([np.linalg.norm(pt - base_center) for pt in base_pts])))
-            
-            # Цвета для градиента (от темного к светлому)
-            inner_color = tuple(max(0, c - 80) for c in color)
-            
-            # Создаем градиентную маску
-            gradient_mask = create_gradient_mask(
-                img.shape[:2], base_center, base_radius,
-                inner_color, color
-            )
-            
-            # Создаем маску основания
-            base_mask = np.zeros(img.shape[:2], dtype=np.uint8)
-            cv2.fillPoly(base_mask, [base_pts], 255)
-            
-            # Накладываем градиент
-            gradient_region = cv2.bitwise_and(gradient_mask, gradient_mask, mask=base_mask)
-            cv2.addWeighted(gradient_region, 0.7, overlay, 0.3, 0, overlay)
-            
-        except Exception as e:
-            # Если градиент не работает, используем простую заливку
-            print(f"Gradient failed: {e}, using solid fill")
-            cv2.fillPoly(overlay, [base_pts], color)
-    else:
-        # Простая заливка
-        cv2.fillPoly(overlay, [base_pts], color)
-    
-    # Рисуем грани конуса
-    for i, pt in enumerate(base_pts):
-        # Градиент толщины линии
-        thickness = max(1, int(3 * (1 - i / len(base_pts))))
-        cv2.line(overlay, nose_pt, tuple(pt), color, thickness)
-    
-    # Контур основания
-    cv2.polylines(overlay, [base_pts], isClosed=True, 
-                  color=tuple(min(255, c + 30) for c in color), thickness=2)
-    
-    # Накладываем на оригинальное изображение
-    cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
-    
-    # Добавляем свечение вершины
-    glow_overlay = img.copy()
-    cv2.circle(glow_overlay, nose_pt, 6, (255, 255, 200), -1)
-    cv2.addWeighted(glow_overlay, 0.3, img, 0.7, 0, img)
-    
-    # Центральная точка вершины
-    cv2.circle(img, nose_pt, 3, (255, 255, 255), -1)
-
-def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30, 
-                    color=(0, 255, 255), segments=48):
-    """
-    Упрощенная версия конуса без градиентов (более стабильная)
-    """
-    # Генерация точек основания
-    base_points = []
+    # Кончик носа
     for i in range(segments):
         angle = 2 * np.pi * i / segments
-        x = radius * np.cos(angle)
-        y = radius * np.sin(angle)
-        base_points.append([x, y, length])
+        x = tip_radius * np.cos(angle)
+        y = tip_radius * np.sin(angle)
+        z = nose_length  # Впереди
+        nose_points.append([x, y, z])
     
-    # Вершина конуса (нос) + точки основания
-    cone_3d = np.float32([[0, 0, 0]] + base_points)
+    # Вершина кончика носа (самая дальняя точка)
+    nose_points.append([0, 0, nose_length + tip_radius])
+    
+    # Преобразуем в numpy массив
+    nose_3d = np.float32(nose_points)
     
     # Проекция в 2D
-    pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
+    pts, _ = cv2.projectPoints(nose_3d, rvec, tvec, K, dist)
     pts = np.int32(pts).reshape(-1, 2)
     
-    nose_pt = tuple(pts[0])
-    base_pts = pts[1:]
+    # Разделяем точки
+    base_pts = pts[:segments]           # Основание у лица
+    tip_pts = pts[segments:2*segments]  # Кончик носа
+    nose_tip = pts[-1]                  # Самая дальняя точка
     
     # Создаем overlay для плавного наложения
     overlay = img.copy()
     
-    # Рисуем основание
-    cv2.fillPoly(overlay, [base_pts], color)
+    # === РИСУЕМ ОСНОВАНИЕ НОСА ===
+    if len(base_pts) > 2:
+        cv2.fillPoly(overlay, [base_pts], color)
     
-    # Рисуем грани
-    for pt in base_pts:
-        cv2.line(overlay, nose_pt, tuple(pt), color, 2)
+    # === РИСУЕМ КОНЧИК НОСА ===
+    if len(tip_pts) > 2:
+        cv2.fillPoly(overlay, [tip_pts], color)
     
-    # Контур основания
-    cv2.polylines(overlay, [base_pts], isClosed=True, 
-                  color=(0, 200, 200), thickness=2)
+    # === РИСУЕМ БОКОВУЮ ПОВЕРХНОСТЬ ===
+    for i in range(segments):
+        # Соединяем основание с кончиком
+        next_i = (i + 1) % segments
+        cv2.line(overlay, tuple(base_pts[i]), tuple(tip_pts[i]), color, 2)
+        cv2.line(overlay, tuple(base_pts[i]), tuple(base_pts[next_i]), color, 1)
+        cv2.line(overlay, tuple(tip_pts[i]), tuple(tip_pts[next_i]), color, 1)
+    
+    # === РИСУЕМ ЦЕНТРАЛЬНУЮ ЛИНИЮ НОСА ===
+    base_center = np.mean(base_pts, axis=0).astype(int)
+    cv2.line(overlay, tuple(base_center), tuple(nose_tip), color, 3)
     
     # Накладываем с прозрачностью
     cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
     
-    # Вершина
-    cv2.circle(img, nose_pt, 4, (255, 255, 255), -1)
+    # Выделяем кончик носа
+    cv2.circle(img, tuple(nose_tip), 4, (255, 100, 0), -1)
+    
+    return nose_tip
 
-def draw_direction_line(img, nose, rvec, tvec, K, dist, length=120, color=(255, 255, 0)):
-    """Рисует линию направления из носа"""
-    # Точка в направлении головы
-    direction_3d = np.float32([[0, 0, length]])
+def draw_simple_nose(img, nose, rvec, tvec, K, dist, nose_length=30, color=(0, 200, 255)):
+    """
+    Упрощенная версия носа Буратино - только конус
+    """
+    # Создаем простой конус
+    segments = 12
+    cone_points = [[0, 0, 0]]  # Основание в носу
+    
+    # Точки основания
+    base_radius = 12
+    for i in range(segments):
+        angle = 2 * np.pi * i / segments
+        x = base_radius * np.cos(angle)
+        y = base_radius * np.sin(angle)
+        cone_points.append([x, y, 0])
+    
+    # Кончик носа
+    cone_points.append([0, 0, nose_length])
+    
+    # Проекция
+    cone_3d = np.float32(cone_points)
+    pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
+    pts = np.int32(pts).reshape(-1, 2)
+    
+    nose_base = tuple(pts[0])
+    base_circle = pts[1:1+segments]
+    nose_tip = tuple(pts[-1])
+    
+    # Рисуем
+    overlay = img.copy()
+    
+    # Основание
+    if len(base_circle) > 2:
+        cv2.fillPoly(overlay, [base_circle], color)
+    
+    # Боковые грани
+    for pt in base_circle:
+        cv2.line(overlay, nose_base, tuple(pt), color, 2)
+        cv2.line(overlay, tuple(pt), nose_tip, color, 2)
+    
+    # Центральная линия
+    cv2.line(overlay, nose_base, nose_tip, (255, 150, 0), 3)
+    
+    cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
+    cv2.circle(img, nose_tip, 4, (255, 100, 0), -1)
+    
+    return nose_tip
+
+def draw_head_direction(img, nose, rvec, tvec, K, dist, length=80, color=(255, 255, 0)):
+    """Рисует направление взгляда"""
+    # Точка в направлении головы (вперед по Z)
+    direction_3d = np.float32([[0, 0, -length]])  # Отрицательный Z - вперед из экрана
     pts, _ = cv2.projectPoints(direction_3d, rvec, tvec, K, dist)
     direction_pt = tuple(np.int32(pts[0][0]))
     
-    # Рисуем стрелку
-    cv2.arrowedLine(img, nose, direction_pt, color, 3, tipLength=0.2)
+    # Рисуем стрелку направления
+    cv2.arrowedLine(img, nose, direction_pt, color, 2, tipLength=0.15)
 
-def visualize(img, nose, result, use_simple_cone=False):
-    """Основная функция визуализации"""
+def visualize(img, nose, result, nose_style="burattino"):
+    """
+    Основная функция визуализации
+    
+    nose_style: 
+      - "burattino" - полноценный нос Буратино 
+      - "simple" - простой конус
+      - "none" - без носа
+    """
     # Рисуем оси
     draw_axes(img, nose)
     
     if 'rvec' in result:
-        # Рисуем направление
-        draw_direction_line(
+        # Рисуем направление взгляда
+        draw_head_direction(
             img, nose,
             result['rvec'], result['tvec'], result['K'], 
             result.get('dist', np.zeros((4,1))),
-            length=120, color=(255, 200, 0)
+            length=60, color=(255, 200, 0)
         )
         
-        # Рисуем конус (простой или сложный)
-        if use_simple_cone:
-            draw_simple_cone(
+        # Рисуем нос в зависимости от выбранного стиля
+        if nose_style == "burattino":
+            nose_tip = draw_burattino_nose(
                 img, nose,
                 result['rvec'], result['tvec'], result['K'], 
                 result.get('dist', np.zeros((4,1))),
-                length=90, radius=30, color=(0, 255, 255), segments=48
+                nose_length=35, base_radius=10, tip_radius=6, color=(0, 200, 255)
             )
-        else:
-            draw_smooth_cone(
+        elif nose_style == "simple":
+            nose_tip = draw_simple_nose(
                 img, nose,
                 result['rvec'], result['tvec'], result['K'], 
                 result.get('dist', np.zeros((4,1))),
-                length=90, radius=30, color=(0, 255, 255), segments=48, gradient=True
+                nose_length=30, color=(0, 200, 255)
             )
-    
-    # Добавляем информационный текст
-    info_text = "Head Pose Estimation"
-    cv2.putText(img, info_text, (10, 30), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-    cv2.putText(img, info_text, (10, 30), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 100, 255), 1)
-
-# Дополнительная функция для отладки
-def debug_visualization(img, nose, result, use_simple_cone=True):
-    """Расширенная визуализация для отладки (использует простой конус по умолчанию)"""
-    visualize(img, nose, result, use_simple_cone=use_simple_cone)
-    
-    if 'rvec' in result:
-        # Добавляем углы поворота
-        rmat, _ = cv2.Rodrigues(result['rvec'])
-        angles = rotation_matrix_to_euler_angles(rmat)
         
-        text_y = 60
-        for i, (angle, axis) in enumerate(zip(angles, ['Pitch', 'Yaw', 'Roll'])):
-            text = f"{axis}: {np.degrees(angle):.1f}°"
-            cv2.putText(img, text, (10, text_y + i*25), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-def rotation_matrix_to_euler_angles(R):
-    """Конвертирует матрицу вращения в углы Эйлера"""
-    sy = np.sqrt(R[0,0] * R[0,0] + R[1,0] * R[1,0])
+        # Отмечаем исходную точку носа
+        cv2.circle(img, nose, 3, (255, 255, 255), -1)
+        cv2.circle(img, nose, 5, (0, 100, 255), 1)
     
-    singular = sy < 1e-6
+    # Информация
+    cv2.putText(img, "Head Pose + Nose Direction", (5, 15), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
-    if not singular:
-        x = np.arctan2(R[2,1], R[2,2])
-        y = np.arctan2(-R[2,0], sy)
-        z = np.arctan2(R[1,0], R[0,0])
-    else:
-        x = np.arctan2(-R[1,2], R[1,1])
-        y = np.arctan2(-R[2,0], sy)
-        z = 0
-
-    return np.array([x, y, z])
+# Функция для тестирования с вашим JSON
+def test_with_json_data(img, json_data):
+    """
+    Тестовая функция для работы с вашими данными JSON
+    """
+    # Создаем фиктивные параметры камеры (подходят для вашего размера изображения)
+    h, w = json_data["image_size"]
+    K = np.array([[w, 0, w/2],
+                  [0, w, h/2], 
+                  [0, 0, 1]], dtype=np.float32)
+    
+    # Фиксированная позиция камеры
+    tvec = np.array([[0, 0, 500]], dtype=np.float32)
+    
+    # Преобразуем углы Эйлера в вектор вращения
+    pitch = np.radians(json_data["ground_truth"]["pitch"])
+    yaw = np.radians(json_data["ground_truth"]["yaw"]) 
+    roll = np.radians(json_data["ground_truth"]["roll"])
+    
+    rvec = np.array([pitch, yaw, roll], dtype=np.float32)
+    
+    # Точка носа из JSON
+    nose = tuple(json_data["props"]["kp_nose_tip"])
+    
+    # Собираем результат
+    result = {
+        'rvec': rvec,
+        'tvec': tvec, 
+        'K': K,
+        'dist': np.zeros((4, 1))
+    }
+    
+    # Визуализируем
+    visualize(img, nose, result, nose_style="burattino")
+    
+    return img
