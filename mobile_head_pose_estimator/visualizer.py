@@ -1,163 +1,173 @@
+# visualizer.py
 import cv2
 import numpy as np
 
-def draw_head_axes(img, rvec, tvec, K, dist, axis_length=40):
-    """
-    Рисует 3D оси, привязанные к голове:
-    - X (красный): к правому глазу
-    - Y (зелёный): вверх (между глаз)
-    - Z (синий): вперёд из лица
-    """
-    # Концы осей в локальной системе головы
-    axis_points = np.float32([
-        [0, 0, 0],           # центр (нос)
-        [axis_length, 0, 0], # +X → право
-        [0, axis_length, 0], # +Y → вверх
-        [0, 0, -axis_length] # +Z → вперёд (в камеру)
-    ])
-
-    pts, _ = cv2.projectPoints(axis_points, rvec, tvec, K, dist)
-    pts = np.int32(pts).reshape(-1, 2)
-    origin = tuple(pts[0])
-    x_end, y_end, z_end = tuple(pts[1]), tuple(pts[2]), tuple(pts[3])
-
-    # Рисуем оси
-    cv2.arrowedLine(img, origin, x_end, (0, 0, 255), 2, tipLength=0.2)     # X
-    cv2.arrowedLine(img, origin, y_end, (0, 255, 0), 2, tipLength=0.2)     # Y
-    cv2.arrowedLine(img, origin, z_end, (255, 0, 0), 2, tipLength=0.2)     # Z
-
-    # Подписи
-    cv2.putText(img, 'X', (x_end[0]+3, x_end[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
-    cv2.putText(img, 'Y', (y_end[0]+3, y_end[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
-    cv2.putText(img, 'Z', (z_end[0]+3, z_end[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 1)
-
-    return origin
-
-def draw_mini_axes(img, rvec, size=60, margin=15):
-    """
-    Мини-визуализация осей в правом верхнем углу
-    как в Blender: показывает ориентацию головы в мире
-    """
+def draw_axes(img, nose, scale=25):  # Уменьшил масштаб для маленького изображения
+    """Рисуем оси с правильным масштабом"""
     h, w = img.shape[:2]
-    overlay = img.copy()
-    x0, y0 = w - size - margin, margin
+    scale = min(scale, w//4, h//4)  # Ограничиваем масштаб
+    
+    # X — красная (вправо)
+    if nose[0] + scale < w:
+        cv2.line(img, nose, (nose[0] + scale, nose[1]), (0, 0, 255), 2)
+        cv2.putText(img, 'X', (nose[0] + scale + 3, nose[1]), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+    
+    # Y — зелёная (вверх)  
+    if nose[1] - scale > 0:
+        cv2.line(img, nose, (nose[0], nose[1] - scale), (0, 255, 0), 2)
+        cv2.putText(img, 'Y', (nose[0], nose[1] - scale - 5), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+    
+    # Z — синяя (влево)
+    if nose[0] - scale > 0:
+        cv2.line(img, nose, (nose[0] - scale, nose[1]), (255, 0, 0), 2)
+        cv2.putText(img, 'Z', (nose[0] - scale - 12, nose[1]), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
 
-    # Фон
-    cv2.rectangle(overlay, (x0-5, y0-5), (x0+size+5, y0+size+5), (30, 30, 30), -1)
-    cv2.rectangle(overlay, (x0-5, y0-5), (x0+size+5, y0+size+5), (200, 200, 200), 1)
-
-    # Центр мини-осей
-    center = np.float32([[0, 0, 0]])
-    axis_ends = np.float32([
-        [20, 0, 0],   # X
-        [0, 20, 0],   # Y
-        [0, 0, -20]   # Z
-    ])
-
-    # Проекция с ортогональной камерой (вид сбоку)
-    R, _ = cv2.Rodrigues(rvec)
-    view_matrix = np.eye(4)
-    view_matrix[:3, :3] = R
-
-    # Ортогональная проекция: просто умножаем на R и масштабируем
-    center_2d = (x0 + size//2, y0 + size//2)
-    scale = size / 50.0
-
-    def project_local(pt):
-        rotated = R @ pt
-        px = center_2d[0] + rotated[0] * scale
-        py = center_2d[1] - rotated[1] * scale  # Y вверх
-        return int(px), int(py)
-
-    origin_2d = project_local([0,0,0])
-    x_2d = project_local(axis_ends[0])
-    y_2d = project_local(axis_ends[1])
-    z_2d = project_local(axis_ends[2])
-
-    # Рисуем оси
-    cv2.arrowedLine(overlay, origin_2d, x_2d, (0,0,255), 2, tipLength=0.3)
-    cv2.arrowedLine(overlay, origin_2d, y_2d, (0,255,0), 2, tipLength=0.3)
-    cv2.arrowedLine(overlay, origin_2d, z_2d, (255,0,0), 2, tipLength=0.3)
-
-    # Подписи
-    cv2.putText(overlay, 'X', (x_2d[0]+2, x_2d[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255), 1)
-    cv2.putText(overlay, 'Y', (y_2d[0]+2, y_2d[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,255,0), 1)
-    cv2.putText(overlay, 'Z', (z_2d[0]+2, z_2d[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,0,0), 1)
-
-    # Надпись
-    cv2.putText(overlay, 'HEAD', (x0, y0-5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (200,200,200), 1)
-
-    # Накладываем с прозрачностью
-    cv2.addWeighted(overlay, 0.8, img, 0.2, 0, img)
-
-def draw_cone(img, rvec, tvec, K, dist, cone_length=45, base_radius=7, segments=16):
+def draw_visible_nose(img, nose, rvec, tvec, K, dist, nose_length=25, color=(0, 200, 255)):
     """
-    Конус: основание на носу, вершина — вперёд по Z
+    Рисуем УПРОЩЕННЫЙ и ВИДИМЫЙ нос для маленьких изображений
     """
+    # Параметры, подходящие для маленького изображения
+    base_radius = 8   # Радиус основания
+    tip_radius = 3    # Радиус кончика
+    
+    # Создаем простой конус: основание -> кончик
     cone_points = []
-    for i in range(segments):
-        angle = 2 * np.pi * i / segments
+    
+    # Основание (круг вокруг носа)
+    for i in range(8):  # Всего 8 точек для плавности
+        angle = 2 * np.pi * i / 8
         x = base_radius * np.cos(angle)
-        y = base_radius * np.sin(angle)
-        cone_points.append([x, y, 0])
-    cone_points.append([0, 0, -cone_length])
-
-    pts, _ = cv2.projectPoints(np.float32(cone_points), rvec, tvec, K, dist)
+        y = base_radius * np.sin(angle) 
+        z = 0  # У лица
+        cone_points.append([x, y, z])
+    
+    # Кончик носа
+    cone_points.append([0, 0, nose_length])
+    
+    # Проекция в 2D
+    cone_3d = np.float32(cone_points)
+    pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
     pts = np.int32(pts).reshape(-1, 2)
+    
+    base_pts = pts[:-1]  # Точки основания
+    nose_tip = tuple(pts[-1])  # Кончик носа
+    
+    # Проверяем, виден ли кончик носа
+    h, w = img.shape[:2]
+    if not (0 <= nose_tip[0] < w and 0 <= nose_tip[1] < h):
+        print(f"Кончик носа за пределами изображения: {nose_tip}")
+        # Корректируем длину носа
+        return draw_visible_nose(img, nose, rvec, tvec, K, dist, 
+                               nose_length=nose_length-5, color=color)
+    
+    # Рисуем ОСНОВАНИЕ (круг вокруг носа)
+    if len(base_pts) > 2:
+        cv2.polylines(img, [base_pts], True, color, 2)
+    
+    # Рисуем ЛИНИИ от основания к кончику
+    for base_pt in base_pts[::2]:  # Каждую вторую точку для избежания нагромождения
+        cv2.line(img, tuple(base_pt), nose_tip, color, 2)
+    
+    # Выделяем КОНЧИК НОСА
+    cv2.circle(img, nose_tip, 4, (255, 100, 0), -1)
+    cv2.circle(img, nose_tip, 6, (255, 150, 0), 1)
+    
+    # Выделяем ОСНОВАНИЕ (точку носа на лице)
+    cv2.circle(img, nose, 3, (255, 255, 255), -1)
+    cv2.circle(img, nose, 5, (0, 100, 255), 1)
+    
+    return nose_tip
 
-    base_pts = pts[:-1]
-    tip_pt = tuple(pts[-1])
-    nose_2d = tuple(pts[0])
+def visualize_for_small_image(img, nose, result):
+    """
+    Специальная визуализация для маленьких изображений (147x181)
+    """
+    # Рисуем оси
+    draw_axes(img, nose, scale=20)
+    
+    if 'rvec' in result:
+        # Рисуем нос
+        nose_tip = draw_visible_nose(
+            img, nose,
+            result['rvec'], result['tvec'], result['K'], 
+            result.get('dist', np.zeros((4,1))),
+            nose_length=20,  # Укороченный нос для маленького изображения
+            color=(0, 200, 255)  # Яркий оранжево-желтый
+        )
+        
+        # Рисуем направление (стрелку от носа к кончику)
+        cv2.arrowedLine(img, nose, nose_tip, (255, 255, 0), 2, tipLength=0.3)
+    
+    # Информация
+    cv2.putText(img, "Nose Direction", (5, 15), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+    
+    # Отладочная информация
+    debug_info = f"Img: {img.shape[1]}x{img.shape[0]} Nose: {nose}"
+    cv2.putText(img, debug_info, (5, img.shape[0] - 10), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.3, (200, 200, 200), 1)
 
-    # Основание
-    cv2.circle(img, nose_2d, base_radius, (100, 200, 255), -1)
-    cv2.circle(img, nose_2d, base_radius, (50, 150, 200), 2)
-
-    # Рёбра
-    for pt in base_pts:
-        cv2.line(img, pt, tip_pt, (100, 200, 255), 1)
-    cv2.line(img, nose_2d, tip_pt, (0, 150, 255), 2)
-
-    # Вершина
-    cv2.circle(img, tip_pt, 4, (255, 150, 0), -1)
-
-    return tip_pt
-
-def visualize(img, nose, result):
-    if 'rvec' not in result:
-        return
-
-    rvec = result['rvec']
-    tvec = result['tvec']
-    K = result['K']
-    dist = result.get('dist', np.zeros((4, 1)))
-
-    # 1. Основные оси на голове
-    origin = draw_head_axes(img, rvec, tvec, K, dist, axis_length=40)
-
-    # 2. Конус направления
-    tip_pt = draw_cone(img, rvec, tvec, K, dist, cone_length=45, base_radius=7)
-
-    # 3. Мини-карта в углу
-    draw_mini_axes(img, rvec, size=60, margin=15)
-
-    # 4. Подпись
-    cv2.putText(img, "HEAD DIRECTION", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
-    cv2.putText(img, "HEAD DIRECTION", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,0), 1)
-
-# Тест
-def test_simple_visualization(img, json_data):
+# ИСПРАВЛЕННАЯ тестовая функция для вашего JSON
+def test_with_json_data(img, json_data):
+    """
+    Тестовая функция с ПРАВИЛЬНЫМИ параметрами камеры
+    """
     h, w = json_data["image_size"]
-    K = np.array([[w, 0, w/2], [0, w, h/2], [0, 0, 1]], dtype=np.float32)
-    tvec = np.array([[0, 0, 500]], dtype=np.float32).T
-
+    
+    # ПРАВИЛЬНАЯ матрица камеры для маленького изображения
+    K = np.array([[200, 0, w/2],    # fx, fy - меньше для широкоугольного обзора
+                  [0, 200, h/2], 
+                  [0, 0, 1]], dtype=np.float32)
+    
+    # Ближе к объекту для маленького изображения
+    tvec = np.array([[0, 0, 200]], dtype=np.float32)  # Было 500 - слишком далеко!
+    
+    # Углы из JSON (ваши данные: pitch=-10, yaw=2.5, roll=-2)
     pitch = np.radians(json_data["ground_truth"]["pitch"])
-    yaw = np.radians(json_data["ground_truth"]["yaw"])
+    yaw = np.radians(json_data["ground_truth"]["yaw"]) 
     roll = np.radians(json_data["ground_truth"]["roll"])
-    rvec = np.array([pitch, yaw, roll], dtype=np.float32).reshape(3, 1)
-
+    
+    rvec = np.array([pitch, yaw, roll], dtype=np.float32)
+    
+    # Точка носа из JSON
     nose = tuple(json_data["props"]["kp_nose_tip"])
-
-    result = {'rvec': rvec, 'tvec': tvec, 'K': K, 'dist': np.zeros((4,1))}
-    visualize(img, nose, result)
+    
+    # Собираем результат
+    result = {
+        'rvec': rvec,
+        'tvec': tvec, 
+        'K': K,
+        'dist': np.zeros((4, 1))
+    }
+    
+    # Используем специальную визуализацию для маленьких изображений
+    visualize_for_small_image(img, nose, result)
+    
     return img
+
+# Простая функция для быстрого теста
+def quick_test():
+    """
+    Быстрый тест на черном изображении
+    """
+    # Создаем черное изображение вашего размера
+    img = np.zeros((181, 147, 3), dtype=np.uint8)
+    
+    # Ваши данные
+    json_data = {
+        "image_size": [147, 181],
+        "props": {"kp_nose_tip": [78, 108]},
+        "ground_truth": {"yaw": 2.5, "pitch": -10.0, "roll": -2.0}
+    }
+    
+    result_img = test_with_json_data(img, json_data)
+    cv2.imshow('Nose Direction Test', result_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+# Запустите этот тест сначала!
+if __name__ == "__main__":
+    quick_test()
