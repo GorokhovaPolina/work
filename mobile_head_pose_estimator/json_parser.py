@@ -1,7 +1,7 @@
 import json
 from typing import Optional, Dict, Tuple
 
-def load_keypoints(json_path: str) -> Optional[Dict]:
+def load_keypoints_from_json(json_path: str) -> Optional[Dict]:
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
