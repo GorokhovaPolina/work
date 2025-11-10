@@ -21,17 +21,17 @@ def draw_axes(img, nose, scale=50):
 
 def create_gradient_mask(shape, center, radius, inner_color, outer_color):
     """Создает градиентную маску для плавного перехода цвета"""
-    mask = np.zeros(shape, dtype=np.uint8)
+    mask = np.zeros((*shape, 3), dtype=np.uint8)
     y, x = np.ogrid[:shape[0], :shape[1]]
     dist_from_center = np.sqrt((x - center[0])**2 + (y - center[1])**2)
     
-    # Нормализуем расстояния
-    dist_norm = np.clip(dist_from_center / radius, 0, 1)
+    # Нормализуем расстояния и инвертируем (1 в центре, 0 на краю)
+    dist_norm = np.clip(1 - (dist_from_center / radius), 0, 1)
     
     # Интерполяция цветов
     for i in range(3):
-        mask[..., i] = (inner_color[i] * (1 - dist_norm) + 
-                       outer_color[i] * dist_norm).astype(np.uint8)
+        mask[..., i] = (inner_color[i] * dist_norm + 
+                       outer_color[i] * (1 - dist_norm)).astype(np.uint8)
     
     return mask
 
@@ -61,56 +61,101 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30,
     # Создаем маску для рисования
     overlay = img.copy()
     
-    if gradient:
-        # Градиент для основания
-        base_center = np.mean(base_pts, axis=0).astype(int)
-        base_radius = int(np.linalg.norm(base_pts[0] - base_center))
-        
-        # Темно-желтый к светлому
-        inner_color = tuple(max(0, c - 80) for c in color)
-        
-        # Создаем градиентную маску
-        gradient_mask = create_gradient_mask(
-            img.shape[:2], base_center, base_radius, 
-            inner_color, color
-        )
-        
-        # Применяем градиент к области основания
-        base_mask = np.zeros(img.shape[:2], dtype=np.uint8)
-        cv2.fillPoly(base_mask, [base_pts], 255)
-        
-        # Накладываем градиент
-        gradient_region = cv2.bitwise_and(gradient_mask, gradient_mask, mask=base_mask)
-        cv2.addWeighted(gradient_region, 0.7, overlay, 0.3, 0, overlay)
+    # Рисуем основание
+    if gradient and len(base_pts) > 2:
+        try:
+            # Вычисляем центр и радиус основания
+            base_center = np.mean(base_pts, axis=0).astype(int)
+            base_radius = max(10, int(0.8 * np.mean([np.linalg.norm(pt - base_center) for pt in base_pts])))
+            
+            # Цвета для градиента (от темного к светлому)
+            inner_color = tuple(max(0, c - 80) for c in color)
+            
+            # Создаем градиентную маску
+            gradient_mask = create_gradient_mask(
+                img.shape[:2], base_center, base_radius,
+                inner_color, color
+            )
+            
+            # Создаем маску основания
+            base_mask = np.zeros(img.shape[:2], dtype=np.uint8)
+            cv2.fillPoly(base_mask, [base_pts], 255)
+            
+            # Накладываем градиент
+            gradient_region = cv2.bitwise_and(gradient_mask, gradient_mask, mask=base_mask)
+            cv2.addWeighted(gradient_region, 0.7, overlay, 0.3, 0, overlay)
+            
+        except Exception as e:
+            # Если градиент не работает, используем простую заливку
+            print(f"Gradient failed: {e}, using solid fill")
+            cv2.fillPoly(overlay, [base_pts], color)
     else:
         # Простая заливка
         cv2.fillPoly(overlay, [base_pts], color)
     
-    # Рисуем грани с градиентом толщины
+    # Рисуем грани конуса
     for i, pt in enumerate(base_pts):
-        # Градиент толщины линии от центра
+        # Градиент толщины линии
         thickness = max(1, int(3 * (1 - i / len(base_pts))))
-        alpha = 0.3 + 0.7 * (i / len(base_pts))  # Градиент прозрачности
-        
-        line_overlay = overlay.copy()
-        cv2.line(line_overlay, nose_pt, tuple(pt), color, thickness)
-        cv2.addWeighted(line_overlay, alpha, overlay, 1 - alpha, 0, overlay)
+        cv2.line(overlay, nose_pt, tuple(pt), color, thickness)
     
     # Контур основания
     cv2.polylines(overlay, [base_pts], isClosed=True, 
                   color=tuple(min(255, c + 30) for c in color), thickness=2)
     
     # Накладываем на оригинальное изображение
-    cv2.addWeighted(overlay, 0.8, img, 0.2, 0, img)
+    cv2.addWeighted(overlay, 0.6, img, 0.4, 0, img)
     
     # Добавляем свечение вершины
-    glow_size = 8
     glow_overlay = img.copy()
-    cv2.circle(glow_overlay, nose_pt, glow_size, (255, 255, 200), -1)
+    cv2.circle(glow_overlay, nose_pt, 6, (255, 255, 200), -1)
     cv2.addWeighted(glow_overlay, 0.3, img, 0.7, 0, img)
     
     # Центральная точка вершины
     cv2.circle(img, nose_pt, 3, (255, 255, 255), -1)
+
+def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30, 
+                    color=(0, 255, 255), segments=48):
+    """
+    Упрощенная версия конуса без градиентов (более стабильная)
+    """
+    # Генерация точек основания
+    base_points = []
+    for i in range(segments):
+        angle = 2 * np.pi * i / segments
+        x = radius * np.cos(angle)
+        y = radius * np.sin(angle)
+        base_points.append([x, y, length])
+    
+    # Вершина конуса (нос) + точки основания
+    cone_3d = np.float32([[0, 0, 0]] + base_points)
+    
+    # Проекция в 2D
+    pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
+    pts = np.int32(pts).reshape(-1, 2)
+    
+    nose_pt = tuple(pts[0])
+    base_pts = pts[1:]
+    
+    # Создаем overlay для плавного наложения
+    overlay = img.copy()
+    
+    # Рисуем основание
+    cv2.fillPoly(overlay, [base_pts], color)
+    
+    # Рисуем грани
+    for pt in base_pts:
+        cv2.line(overlay, nose_pt, tuple(pt), color, 2)
+    
+    # Контур основания
+    cv2.polylines(overlay, [base_pts], isClosed=True, 
+                  color=(0, 200, 200), thickness=2)
+    
+    # Накладываем с прозрачностью
+    cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
+    
+    # Вершина
+    cv2.circle(img, nose_pt, 4, (255, 255, 255), -1)
 
 def draw_direction_line(img, nose, rvec, tvec, K, dist, length=120, color=(255, 255, 0)):
     """Рисует линию направления из носа"""
@@ -121,8 +166,8 @@ def draw_direction_line(img, nose, rvec, tvec, K, dist, length=120, color=(255, 
     
     # Рисуем стрелку
     cv2.arrowedLine(img, nose, direction_pt, color, 3, tipLength=0.2)
-    
-def visualize(img, nose, result):
+
+def visualize(img, nose, result, use_simple_cone=False):
     """Основная функция визуализации"""
     # Рисуем оси
     draw_axes(img, nose)
@@ -136,25 +181,33 @@ def visualize(img, nose, result):
             length=120, color=(255, 200, 0)
         )
         
-        # Рисуем красивый конус
-        draw_smooth_cone(
-            img, nose,
-            result['rvec'], result['tvec'], result['K'], 
-            result.get('dist', np.zeros((4,1))),
-            length=90, radius=30, color=(0, 255, 255), segments=48, gradient=True
-        )
+        # Рисуем конус (простой или сложный)
+        if use_simple_cone:
+            draw_simple_cone(
+                img, nose,
+                result['rvec'], result['tvec'], result['K'], 
+                result.get('dist', np.zeros((4,1))),
+                length=90, radius=30, color=(0, 255, 255), segments=48
+            )
+        else:
+            draw_smooth_cone(
+                img, nose,
+                result['rvec'], result['tvec'], result['K'], 
+                result.get('dist', np.zeros((4,1))),
+                length=90, radius=30, color=(0, 255, 255), segments=48, gradient=True
+            )
     
     # Добавляем информационный текст
-    info_text = f"Head Pose Estimation"
+    info_text = "Head Pose Estimation"
     cv2.putText(img, info_text, (10, 30), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     cv2.putText(img, info_text, (10, 30), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 100, 255), 1)
 
 # Дополнительная функция для отладки
-def debug_visualization(img, nose, result):
-    """Расширенная визуализация для отладки"""
-    visualize(img, nose, result)
+def debug_visualization(img, nose, result, use_simple_cone=True):
+    """Расширенная визуализация для отладки (использует простой конус по умолчанию)"""
+    visualize(img, nose, result, use_simple_cone=use_simple_cone)
     
     if 'rvec' in result:
         # Добавляем углы поворота
