@@ -2,54 +2,22 @@
 import cv2
 import numpy as np
 
-def draw_3d_axes(img, nose, rvec, tvec, K, dist, scale=50):
-    """Рисует 3D оси с учетом перспективы и поворота"""
-    # 3D точки для осей в системе координат головы
-    axis_points = np.float32([
-        [scale, 0, 0],   # X - красный
-        [0, -scale, 0],  # Y - зеленый (отрицательный, т.к. в изображении Y вниз)
-        [0, 0, scale],   # Z - синий
-        [0, 0, 0]        # начало координат (нос)
-    ])
+def draw_axes(img, nose, scale=50):
+    """Рисует красивые оси с подписями"""
+    # X — красная
+    cv2.line(img, nose, (nose[0] + scale, nose[1]), (0, 0, 255), 3)
+    cv2.putText(img, 'X', (nose[0] + scale + 5, nose[1]), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
     
-    # Проецируем 3D точки в 2D
-    pts, _ = cv2.projectPoints(axis_points, rvec, tvec, K, dist)
-    pts = np.int32(pts).reshape(-1, 2)
+    # Y — зелёная  
+    cv2.line(img, nose, (nose[0], nose[1] - scale), (0, 255, 0), 3)
+    cv2.putText(img, 'Y', (nose[0], nose[1] - scale - 10), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
     
-    origin = tuple(pts[3])
-    x_axis = tuple(pts[0])
-    y_axis = tuple(pts[1])
-    z_axis = tuple(pts[2])
-    
-    # Рисуем оси с 3D эффектом (более толстые у основания)
-    # X ось - красная
-    cv2.line(img, origin, x_axis, (0, 0, 255), 4)
-    cv2.line(img, origin, x_axis, (50, 50, 255), 2)  # внутренняя линия для объема
-    
-    # Y ось - зеленая
-    cv2.line(img, origin, y_axis, (0, 255, 0), 4)
-    cv2.line(img, origin, y_axis, (50, 255, 50), 2)
-    
-    # Z ось - синяя
-    cv2.line(img, origin, z_axis, (255, 0, 0), 4)
-    cv2.line(img, origin, z_axis, (255, 50, 50), 2)
-    
-    # Стрелки на концах осей
-    arrow_size = 8
-    # X стрелка
-    cv2.circle(img, x_axis, arrow_size, (0, 0, 255), -1)
-    cv2.putText(img, 'X', (x_axis[0] + 10, x_axis[1]), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-    
-    # Y стрелка
-    cv2.circle(img, y_axis, arrow_size, (0, 255, 0), -1)
-    cv2.putText(img, 'Y', (y_axis[0], y_axis[1] - 15), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    
-    # Z стрелка
-    cv2.circle(img, z_axis, arrow_size, (255, 0, 0), -1)
-    cv2.putText(img, 'Z', (z_axis[0] - 15, z_axis[1]), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+    # Z — синяя
+    cv2.line(img, nose, (nose[0] - scale, nose[1]), (255, 0, 0), 3)
+    cv2.putText(img, 'Z', (nose[0] - scale - 15, nose[1]), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
 
 def create_gradient_mask(shape, center, radius, inner_color, outer_color):
     """Создает градиентную маску для плавного перехода цвета"""
@@ -71,7 +39,7 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15,
                     color=(0, 255, 255), segments=48, gradient=True):
     """
     Рисует красивый конус с градиентами и эффектами
-    КОНУС РАЗВЕРНУТ: основание в носу, вершина в направлении взгляда
+    ИЗМЕНЕНИЕ: конус развернут - основание в носу, вершина в направлении взгляда
     """
     # Генерация точек основания (в носу) - УМЕНЬШЕННЫЙ РАДИУС
     base_points = []
@@ -82,9 +50,9 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15,
         base_points.append([x, y, 0])  # Основание в z=0 (нос)
     
     # Вершина конуса (в направлении взгляда)
-    cone_3d = np.float32([[0, 0, -length]] + base_points)  # Отрицательный Z - конус смотрит от камеры
+    cone_3d = np.float32([[0, 0, length]] + base_points)  # Вершина на расстоянии length
     
-    # Проецируем в 2D
+    # Проекция в 2D
     pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
     pts = np.int32(pts).reshape(-1, 2)
     
@@ -150,8 +118,8 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15,
 def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15, 
                     color=(0, 255, 255), segments=48):
     """
-    Упрощенная версия конуса без градиентов
-    КОНУС РАЗВЕРНУТ: основание в носу, вершина в направлении взгляда
+    Упрощенная версия конуса без градиентов (более стабильная)
+    ИЗМЕНЕНИЕ: конус развернут - основание в носу, вершина в направлении взгляда
     """
     # Генерация точек основания (в носу) - УМЕНЬШЕННЫЙ РАДИУС
     base_points = []
@@ -162,9 +130,9 @@ def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15,
         base_points.append([x, y, 0])  # Основание в z=0 (нос)
     
     # Вершина конуса (в направлении взгляда)
-    cone_3d = np.float32([[0, 0, -length]] + base_points)  # Отрицательный Z - конус смотрит от камеры
+    cone_3d = np.float32([[0, 0, length]] + base_points)  # Вершина на расстоянии length
     
-    # Проецируем в 2D
+    # Проекция в 2D
     pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
     pts = np.int32(pts).reshape(-1, 2)
     
@@ -194,7 +162,7 @@ def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15,
 def draw_direction_line(img, nose, rvec, tvec, K, dist, length=120, color=(255, 255, 0)):
     """Рисует линию направления из носа"""
     # Точка в направлении головы
-    direction_3d = np.float32([[0, 0, -length]])  # Отрицательный Z - направление от камеры
+    direction_3d = np.float32([[0, 0, length]])
     pts, _ = cv2.projectPoints(direction_3d, rvec, tvec, K, dist)
     direction_pt = tuple(np.int32(pts[0][0]))
     
@@ -203,16 +171,10 @@ def draw_direction_line(img, nose, rvec, tvec, K, dist, length=120, color=(255, 
 
 def visualize(img, nose, result, use_simple_cone=False):
     """Основная функция визуализации"""
+    # Рисуем оси
+    draw_axes(img, nose)
     
     if 'rvec' in result:
-        # Рисуем 3D оси
-        draw_3d_axes(
-            img, nose,
-            result['rvec'], result['tvec'], result['K'], 
-            result.get('dist', np.zeros((4,1))),
-            scale=50
-        )
-        
         # Рисуем направление
         draw_direction_line(
             img, nose,
@@ -246,7 +208,7 @@ def visualize(img, nose, result, use_simple_cone=False):
 
 # Дополнительная функция для отладки
 def debug_visualization(img, nose, result, use_simple_cone=True):
-    """Расширенная визуализация для отладки"""
+    """Расширенная визуализация для отладки (использует простой конус по умолчанию)"""
     visualize(img, nose, result, use_simple_cone=use_simple_cone)
     
     if 'rvec' in result:
