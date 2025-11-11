@@ -18,20 +18,8 @@ def print_result(name, result, gt=None):
     pitch = result['pitch']
     roll = result['roll']
 
-    if gt:
-        err_y = abs(yaw - gt['yaw'])
-        err_p = abs(pitch - gt['pitch'])
-        err_r = abs(roll - gt['roll'])
-        mae = (err_y + err_p + err_r) / 3
-        status = "GOOD" if mae < 5 else "WARNING"
-        print(f"{name:<20} | Yaw: {yaw:+6.2f}° (GT: {gt['yaw']:+6.2f} → Δ{err_y:4.2f}°)")
-        print(f"{'':<20} | Pitch: {pitch:+6.2f}° (GT: {gt['pitch']:+6.2f} → Δ{err_p:4.2f}°)")
-        print(f"{'':<20} | Roll:  {roll:+6.2f}° (GT: {gt['roll']:+6.2f} → Δ{err_r:4.2f}°)")
-        print(f"{'':<20} | → MAE = {mae:.2f}° [{status}]")
-    else:
-        print(f"{name:<20} | Yaw: {yaw:+6.2f}° | Pitch: {pitch:+6.2f}° | Roll: {roll:+6.2f}°")
-
     print("-" * 60)
+    print(f"{name:<20} | Yaw: {yaw:+6.2f}° | Pitch: {pitch:+6.2f}° | Roll: {roll:+6.2f}°")
 
 def main():
     print_header()
@@ -67,7 +55,7 @@ def main():
         print_result(filename, result)
 
         # === Визуализация ===
-        img_path = json_path.replace('jsons', 'frames').replace('.json', '.jpg')
+        img_path = json_path.replace('jsons', '../mydataset').replace('.json', '.jpg')
         if not os.path.exists(img_path):
             print(f"   ВНИМАНИЕ: Нет изображения: {img_path}")
             success += 1
@@ -84,7 +72,7 @@ def main():
 
         out_path = f"output/{filename}_vis.jpg"
         cv2.imwrite(out_path, img)
-        print(f"   Визуализация: {out_path} (ЯРКИЙ КОНУС → направление головы)")
+        print(f"   Визуализация: {out_path}")
         
         success += 1
 
