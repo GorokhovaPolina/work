@@ -44,8 +44,8 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length, radius,
         y = radius * np.sin(angle)
         base_points.append([x, y, 0])  # Основание в z=0 (нос)
     
-    # Вершина конуса (в направлении взгляда)
-    cone_3d = np.float32([[0, 0, length]] + base_points)  # Вершина на расстоянии length
+    # ИСПРАВЛЕНИЕ: вершина конуса теперь в направлении взгляда (отрицательное Z)
+    cone_3d = np.float32([[0, 0, -length]] + base_points)  # Вершина на расстоянии length ВПЕРЕДИ
     
     # Проекция в 2D
     pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
@@ -112,8 +112,8 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length, radius,
 
 def draw_direction_line(img, nose, rvec, tvec, K, dist, length, color=(255, 255, 0)):
     """Рисует линию направления из носа"""
-    # Точка в направлении головы
-    direction_3d = np.float32([[0, 0, -length]])
+    # ИСПРАВЛЕНИЕ: точка в направлении взгляда (отрицательное Z)
+    direction_3d = np.float32([[0, 0, -length]])  # Вперед по оси Z
     pts, _ = cv2.projectPoints(direction_3d, rvec, tvec, K, dist)
     direction_pt = tuple(np.int32(pts[0][0]))
     
