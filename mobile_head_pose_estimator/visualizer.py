@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 def draw_axes(img, nose, scale=50):
-    """Рисует красивые оси с подписями"""
+    """Рисует оси с подписями"""
     # X — красная
     cv2.line(img, nose, (nose[0] + scale, nose[1]), (0, 0, 255), 3)
     cv2.putText(img, 'X', (nose[0] + scale + 5, nose[1]), 
@@ -35,38 +35,35 @@ def create_gradient_mask(shape, center, radius, inner_color, outer_color):
     
     return mask
 
-def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30, 
+def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15, 
                     color=(0, 255, 255), segments=48, gradient=True):
-    """
-    Рисует красивый конус с градиентами и эффектами
-    """
-    # Генерация точек основания
+    # Генерация точек основания (в носу)
     base_points = []
     for i in range(segments):
         angle = 2 * np.pi * i / segments
         x = radius * np.cos(angle)
         y = radius * np.sin(angle)
-        base_points.append([x, y, length])
+        base_points.append([x, y, 0])  # Основание в z=0 (нос)
     
-    # Вершина конуса (нос) + точки основания
-    cone_3d = np.float32([[0, 0, 0]] + base_points)
+    # Вершина конуса (в направлении взгляда) + точки основания
+    cone_3d = np.float32([[0, 0, length]] + base_points)  # Вершина на расстоянии length
     
     # Проекция в 2D
     pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
     pts = np.int32(pts).reshape(-1, 2)
     
-    nose_pt = tuple(pts[0])
-    base_pts = pts[1:]
+    tip_pt = tuple(pts[0])  # Вершина конуса
+    base_pts = pts[1:]      # Точки основания
     
     # Создаем маску для рисования
     overlay = img.copy()
     
-    # Рисуем основание
+    # Рисуем основание (в носу)
     if gradient and len(base_pts) > 2:
         try:
             # Вычисляем центр и радиус основания
             base_center = np.mean(base_pts, axis=0).astype(int)
-            base_radius = max(10, int(0.8 * np.mean([np.linalg.norm(pt - base_center) for pt in base_pts])))
+            base_radius = max(5, int(0.8 * np.mean([np.linalg.norm(pt - base_center) for pt in base_pts])))
             
             # Цвета для градиента (от темного к светлому)
             inner_color = tuple(max(0, c - 80) for c in color)
@@ -93,11 +90,11 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30,
         # Простая заливка
         cv2.fillPoly(overlay, [base_pts], color)
     
-    # Рисуем грани конуса
+    # Рисуем грани конуса (от основания к вершине)
     for i, pt in enumerate(base_pts):
         # Градиент толщины линии
         thickness = max(1, int(3 * (1 - i / len(base_pts))))
-        cv2.line(overlay, nose_pt, tuple(pt), color, thickness)
+        cv2.line(overlay, tip_pt, tuple(pt), color, thickness)
     
     # Контур основания
     cv2.polylines(overlay, [base_pts], isClosed=True, 
@@ -108,34 +105,31 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30,
     
     # Добавляем свечение вершины
     glow_overlay = img.copy()
-    cv2.circle(glow_overlay, nose_pt, 6, (255, 255, 200), -1)
+    cv2.circle(glow_overlay, tip_pt, 6, (255, 255, 200), -1)
     cv2.addWeighted(glow_overlay, 0.3, img, 0.7, 0, img)
     
     # Центральная точка вершины
-    cv2.circle(img, nose_pt, 3, (255, 255, 255), -1)
+    cv2.circle(img, tip_pt, 3, (255, 255, 255), -1)
 
-def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30, 
+def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15, 
                     color=(0, 255, 255), segments=48):
-    """
-    Упрощенная версия конуса без градиентов (более стабильная)
-    """
-    # Генерация точек основания
+    # Генерация точек основания (в носу)
     base_points = []
     for i in range(segments):
         angle = 2 * np.pi * i / segments
         x = radius * np.cos(angle)
         y = radius * np.sin(angle)
-        base_points.append([x, y, length])
+        base_points.append([x, y, 0])  # Основание в z=0 (нос)
     
-    # Вершина конуса (нос) + точки основания
-    cone_3d = np.float32([[0, 0, 0]] + base_points)
+    # Вершина конуса (в направлении взгляда) + точки основания
+    cone_3d = np.float32([[0, 0, length]] + base_points)  # Вершина на расстоянии length
     
     # Проекция в 2D
     pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
     pts = np.int32(pts).reshape(-1, 2)
     
-    nose_pt = tuple(pts[0])
-    base_pts = pts[1:]
+    tip_pt = tuple(pts[0])  # Вершина конуса
+    base_pts = pts[1:]      # Точки основания
     
     # Создаем overlay для плавного наложения
     overlay = img.copy()
@@ -143,9 +137,9 @@ def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30,
     # Рисуем основание
     cv2.fillPoly(overlay, [base_pts], color)
     
-    # Рисуем грани
+    # Рисуем грани (от основания к вершине)
     for pt in base_pts:
-        cv2.line(overlay, nose_pt, tuple(pt), color, 2)
+        cv2.line(overlay, tip_pt, tuple(pt), color, 2)
     
     # Контур основания
     cv2.polylines(overlay, [base_pts], isClosed=True, 
@@ -155,7 +149,7 @@ def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=30,
     cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
     
     # Вершина
-    cv2.circle(img, nose_pt, 4, (255, 255, 255), -1)
+    cv2.circle(img, tip_pt, 4, (255, 255, 255), -1)
 
 def draw_direction_line(img, nose, rvec, tvec, K, dist, length=120, color=(255, 255, 0)):
     """Рисует линию направления из носа"""
@@ -187,14 +181,14 @@ def visualize(img, nose, result, use_simple_cone=False):
                 img, nose,
                 result['rvec'], result['tvec'], result['K'], 
                 result.get('dist', np.zeros((4,1))),
-                length=90, radius=30, color=(0, 255, 255), segments=48
+                length=90, radius=15, color=(0, 255, 255), segments=48  # Уменьшен радиус
             )
         else:
             draw_smooth_cone(
                 img, nose,
                 result['rvec'], result['tvec'], result['K'], 
                 result.get('dist', np.zeros((4,1))),
-                length=90, radius=30, color=(0, 255, 255), segments=48, gradient=True
+                length=90, radius=15, color=(0, 255, 255), segments=48, gradient=True  # Уменьшен радиус
             )
     
     # Добавляем информационный текст
