@@ -35,13 +35,8 @@ def create_gradient_mask(shape, center, radius, inner_color, outer_color):
     
     return mask
 
-def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15, 
+def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length, radius, 
                     color=(0, 255, 255), segments=48, gradient=True):
-    """
-    Рисует красивый конус с градиентами и эффектами
-    ИЗМЕНЕНИЕ: конус развернут - основание в носу, вершина в направлении взгляда
-    """
-    # Генерация точек основания (в носу) - УМЕНЬШЕННЫЙ РАДИУС
     base_points = []
     for i in range(segments):
         angle = 2 * np.pi * i / segments
@@ -55,7 +50,7 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15,
     # Проекция в 2D
     pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
     pts = np.int32(pts).reshape(-1, 2)
-    
+
     tip_pt = tuple(pts[0])  # Вершина конуса (в направлении взгляда)
     base_pts = pts[1:]      # Точки основания (в носу)
     
@@ -115,54 +110,10 @@ def draw_smooth_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15,
     # Центральная точка вершины
     cv2.circle(img, tip_pt, 3, (255, 255, 255), -1)
 
-def draw_simple_cone(img, nose, rvec, tvec, K, dist, length=90, radius=15, 
-                    color=(0, 255, 255), segments=48):
-    """
-    Упрощенная версия конуса без градиентов (более стабильная)
-    ИЗМЕНЕНИЕ: конус развернут - основание в носу, вершина в направлении взгляда
-    """
-    # Генерация точек основания (в носу) - УМЕНЬШЕННЫЙ РАДИУС
-    base_points = []
-    for i in range(segments):
-        angle = 2 * np.pi * i / segments
-        x = radius * np.cos(angle)
-        y = radius * np.sin(angle)
-        base_points.append([x, y, 0])  # Основание в z=0 (нос)
-    
-    # Вершина конуса (в направлении взгляда)
-    cone_3d = np.float32([[0, 0, length]] + base_points)  # Вершина на расстоянии length
-    
-    # Проекция в 2D
-    pts, _ = cv2.projectPoints(cone_3d, rvec, tvec, K, dist)
-    pts = np.int32(pts).reshape(-1, 2)
-    
-    tip_pt = tuple(pts[0])  # Вершина конуса
-    base_pts = pts[1:]      # Точки основания
-    
-    # Создаем overlay для плавного наложения
-    overlay = img.copy()
-    
-    # Рисуем основание
-    cv2.fillPoly(overlay, [base_pts], color)
-    
-    # Рисуем грани (от основания к вершине)
-    for pt in base_pts:
-        cv2.line(overlay, tip_pt, tuple(pt), color, 2)
-    
-    # Контур основания
-    cv2.polylines(overlay, [base_pts], isClosed=True, 
-                  color=(0, 200, 200), thickness=2)
-    
-    # Накладываем с прозрачностью
-    cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
-    
-    # Вершина
-    cv2.circle(img, tip_pt, 4, (255, 255, 255), -1)
-
-def draw_direction_line(img, nose, rvec, tvec, K, dist, length=120, color=(255, 255, 0)):
+def draw_direction_line(img, nose, rvec, tvec, K, dist, length, color=(255, 255, 0)):
     """Рисует линию направления из носа"""
     # Точка в направлении головы
-    direction_3d = np.float32([[0, 0, length]])
+    direction_3d = np.float32([[0, 0, -length]])
     pts, _ = cv2.projectPoints(direction_3d, rvec, tvec, K, dist)
     direction_pt = tuple(np.int32(pts[0][0]))
     
@@ -180,24 +131,16 @@ def visualize(img, nose, result, use_simple_cone=False):
             img, nose,
             result['rvec'], result['tvec'], result['K'], 
             result.get('dist', np.zeros((4,1))),
-            length=120, color=(255, 200, 0)
+            length=1.20, color=(255, 200, 0)
         )
         
         # Рисуем конус (простой или сложный)
-        if use_simple_cone:
-            draw_simple_cone(
-                img, nose,
-                result['rvec'], result['tvec'], result['K'], 
-                result.get('dist', np.zeros((4,1))),
-                length=90, radius=15, color=(0, 255, 255), segments=48  # Уменьшен радиус
-            )
-        else:
-            draw_smooth_cone(
-                img, nose,
-                result['rvec'], result['tvec'], result['K'], 
-                result.get('dist', np.zeros((4,1))),
-                length=90, radius=15, color=(0, 255, 255), segments=48, gradient=True  # Уменьшен радиус
-            )
+        draw_smooth_cone(
+            img, nose,
+            result['rvec'], result['tvec'], result['K'], 
+            result.get('dist', np.zeros((4,1))),
+            length=9, radius=0.1, color=(0, 255, 255), segments=48, gradient=True
+        )
     
     # Добавляем информационный текст
     info_text = "Head Pose Estimation"
@@ -205,36 +148,3 @@ def visualize(img, nose, result, use_simple_cone=False):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     cv2.putText(img, info_text, (10, 30), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 100, 255), 1)
-
-# Дополнительная функция для отладки
-def debug_visualization(img, nose, result, use_simple_cone=True):
-    """Расширенная визуализация для отладки (использует простой конус по умолчанию)"""
-    visualize(img, nose, result, use_simple_cone=use_simple_cone)
-    
-    if 'rvec' in result:
-        # Добавляем углы поворота
-        rmat, _ = cv2.Rodrigues(result['rvec'])
-        angles = rotation_matrix_to_euler_angles(rmat)
-        
-        text_y = 60
-        for i, (angle, axis) in enumerate(zip(angles, ['Pitch', 'Yaw', 'Roll'])):
-            text = f"{axis}: {np.degrees(angle):.1f}°"
-            cv2.putText(img, text, (10, text_y + i*25), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-
-def rotation_matrix_to_euler_angles(R):
-    """Конвертирует матрицу вращения в углы Эйлера"""
-    sy = np.sqrt(R[0,0] * R[0,0] + R[1,0] * R[1,0])
-    
-    singular = sy < 1e-6
-
-    if not singular:
-        x = np.arctan2(R[2,1], R[2,2])
-        y = np.arctan2(-R[2,0], sy)
-        z = np.arctan2(R[1,0], R[0,0])
-    else:
-        x = np.arctan2(-R[1,2], R[1,1])
-        y = np.arctan2(-R[2,0], sy)
-        z = 0
-
-    return np.array([x, y, z])
