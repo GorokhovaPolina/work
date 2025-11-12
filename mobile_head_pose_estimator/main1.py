@@ -101,8 +101,8 @@ def main():
     # === ИТОГИ ===
     print("="*80)
     print(f"ГОТОВО! Обработано: {total}")
-    print(f"   coeffs (как в C++) → успешно: {coeffs_ok}/{total}")
-    print(f"   PnP (solvePnP)     → успешно: {pnp_ok}/{total}")
+    print(f"   coeffs         → успешно: {coeffs_ok}/{total}")
+    print(f"   PnP (solvePnP) → успешно: {pnp_ok}/{total}")
     print("="*80)
 
 if __name__ == "__main__":

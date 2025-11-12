@@ -26,7 +26,9 @@ def euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg):
 
 def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
                                 length=180, radius=55, segments=64,
-                                color=(0, 255, 255), gradient=True):
+                                base_color=(255, 255, 0),  # Желтый у основания
+                                tip_color=(255, 255, 255),  # Белый у вершины
+                                gradient=True):
     R = euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg)
 
     # ОСНОВАНИЕ НА НОСУ (z=0), ВЕРШИНА ВПЕРЕДИ (z=length)
@@ -53,33 +55,44 @@ def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
 
     overlay = img.copy()
 
-    # === ГРАДИЕНТНОЕ ОСНОВАНИЕ ===
-    if gradient and len(base_pts) > 2:
-        try:
-            base_center = np.mean(base_pts, axis=0).astype(int)
-            base_radius = max(10, int(0.9 * np.mean([np.linalg.norm(np.array(pt) - base_center) for pt in base_pts])))
-            inner_color = tuple(max(0, c - 100) for c in color)
-            outer_color = color
+    # # === ГРАДИЕНТНОЕ ОСНОВАНИЕ ===
+    # if gradient and len(base_pts) > 2:
+    #     try:
+    #         base_center = np.mean(base_pts, axis=0).astype(int)
+    #         base_radius = max(10, int(0.9 * np.mean([np.linalg.norm(np.array(pt) - base_center) for pt in base_pts])))
+            
+    #         # Используем базовый цвет для основания
+    #         inner_color = tuple(max(0, c - 100) for c in base_color)
+    #         outer_color = base_color
 
-            gradient_mask = create_gradient_mask(img.shape[:2], base_center, base_radius, inner_color, outer_color)
-            base_mask = np.zeros(img.shape[:2], dtype=np.uint8)
-            cv2.fillPoly(base_mask, [base_pts], 255)
-            gradient_region = cv2.bitwise_and(gradient_mask, gradient_mask, mask=base_mask)
-            cv2.addWeighted(gradient_region, 0.75, overlay, 0.25, 0, overlay)
-        except:
-            cv2.fillPoly(overlay, [base_pts], color)
-    else:
-        cv2.fillPoly(overlay, [base_pts], color)
+    #         gradient_mask = create_gradient_mask(img.shape[:2], base_center, base_radius, inner_color, outer_color)
+    #         base_mask = np.zeros(img.shape[:2], dtype=np.uint8)
+    #         cv2.fillPoly(base_mask, [base_pts], 255)
+    #         gradient_region = cv2.bitwise_and(gradient_mask, gradient_mask, mask=base_mask)
+    #         cv2.addWeighted(gradient_region, 0.75, overlay, 0.25, 0, overlay)
+    #     except:
+    #         cv2.fillPoly(overlay, [base_pts], base_color)
+    # else:
+    cv2.fillPoly(overlay, [base_pts], base_color)
 
-    # === ГРАНИ С ГРАДИЕНТОМ ТОЛЩИНЫ ===
+    # === ГРАНИ С ГРАДИЕНТОМ ОТ ОСНОВАНИЯ К ВЕРШИНЕ ===
     for i, pt in enumerate(base_pts):
+        # Интерполяция цвета от основания к вершине
         t = i / len(base_pts)
+        color_ratio = t  # Можно изменить на math.sqrt(t) для нелинейного перехода
+        
+        # Интерполяция между base_color и tip_color
+        r = int(base_color[0] * (1 - color_ratio) + tip_color[0] * color_ratio)
+        g = int(base_color[1] * (1 - color_ratio) + tip_color[1] * color_ratio)
+        b = int(base_color[2] * (1 - color_ratio) + tip_color[2] * color_ratio)
+        line_color = (b, g, r)  # OpenCV использует BGR
+        
+        # Толщина также может меняться
         thickness = max(1, int(4 * (1 - t**0.7)))
-        line_color = tuple(int(c * (1 - 0.4 * t)) for c in color)
         cv2.line(overlay, tip_pt, tuple(pt), line_color, thickness)
 
     # === КОНТУР ОСНОВАНИЯ ===
-    bright_color = tuple(min(255, c + 60) for c in color)
+    bright_color = tuple(min(255, c + 60) for c in base_color)
     cv2.polylines(overlay, [base_pts], True, bright_color, 3)
 
     # === НАЛОЖЕНИЕ ===
@@ -87,9 +100,9 @@ def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
 
     # === СВЕЧЕНИЕ ВЕРШИНЫ ===
     glow = img.copy()
-    cv2.circle(glow, tip_pt, 10, (255, 255, 200), -1)
+    cv2.circle(glow, tip_pt, 10, tip_color, -1)  # Используем цвет вершины
     cv2.addWeighted(glow, 0.3, img, 0.7, 0, img)
-    cv2.circle(img, tip_pt, 4, (255, 255, 255), -1)
+    cv2.circle(img, tip_pt, 4, tip_color, -1)  # Используем цвет вершины
 
     # === ОСИ ===
     axes = np.float32([[60,0,0], [0,60,0], [0,0,60]]) @ R.T
@@ -112,4 +125,6 @@ def visualize(img, nose, result):
     else:
         return
 
-    draw_perfect_cone_by_angles(img, nose, yaw, pitch, roll)
+    draw_perfect_cone_by_angles(img, nose, yaw, pitch, roll,
+                                base_color=(0, 0, 0),
+                                tip_color=(255, 255, 255))
