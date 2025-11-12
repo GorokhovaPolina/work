@@ -58,13 +58,27 @@ class GeometricPoseCalculator:
 
             mid = (le + re) / 2.0
             nose_vec = no - mid
-            ipd = max(1.0, np.linalg.norm(eye_vec))  # interocular distance (pixels)
+            ipd = max(1.0, np.linalg.norm(eye_vec))
 
-            # heuristics: scale to degrees — tune multiplier (here 40 deg per ipd)
-            yaw = (nose_vec[0] / ipd) * 40.0    # nose right -> negative/positive depending on your convention
-            pitch = - (nose_vec[1] / ipd) * 40.0  # nose down -> negative pitch; invert as you need
+            # НОВАЯ ЛОГИКА PITCH:
+            # Используем относительное положение носа к линии глаз
+            # Если нос на одной линии с глазами -> pitch = 0
+            # Если нос сильно ниже -> положительный pitch (голова опущена)
+            # Если нос сильно выше -> отрицательный pitch (голова поднята)
+            
+            # Нормализуем вертикальное смещение
+            vertical_ratio = nose_vec[1] / ipd
+            
+            # Эмпирическая калибровка: 
+            # vertical_ratio ~ 0.1-0.3 для прямого взгляда (зависит от анатомии)
+            # Вычитаем базовое смещение для прямого взгляда
+            baseline_vertical = 0.3  # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            calibrated_vertical = vertical_ratio - baseline_vertical
+            
+            pitch = -calibrated_vertical * 60.0  # инвертируем и масштабируем
+            yaw = (nose_vec[0] / ipd) * 40.0
 
-            # clamp
+            # clamp angles
             yaw = max(-180.0, min(180.0, yaw))
             pitch = max(-90.0, min(90.0, pitch))
             roll = (roll + 180.0) % 360.0 - 180.0
@@ -79,8 +93,7 @@ class GeometricPoseCalculator:
                 'cos_minor': float(cos_minor),
                 'method': 'geom'
             }
-
-        # If user explicitly asks for 'coeffs' -> return sin_b, cos_minor (C++ behaviour)
+        # If user explicitly asks for 'coeffs' -> return sin_b, cos_minor
         if mode == 'coeffs':
             sin_b, cos_minor = _find_rotation_coeffs(left_eye, right_eye, nose)
             if sin_b == -8.0:
@@ -117,8 +130,8 @@ class GeometricPoseCalculator:
             # convert to rotation matrix and Euler
             R, _ = cv2.Rodrigues(rvec)
 
-            # rotation_matrix_to_euler must exist in module (implement as you had)
-            angles_rad = rotation_matrix_to_euler(R)  # returns [pitch_rad, yaw_rad, roll_rad] per your convention
+            # rotation_matrix_to_euler must exist in module
+            angles_rad = rotation_matrix_to_euler(R)  # returns [pitch_rad, yaw_rad, roll_rad] per convention
             pitch = math.degrees(angles_rad[0])
             yaw = math.degrees(angles_rad[1])
             roll = math.degrees(angles_rad[2])
