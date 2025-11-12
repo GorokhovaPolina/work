@@ -29,6 +29,6 @@ def find_rotation_coeffs(
     if perp_len == 0:
         return 0.0, 1.0
 
-    sin_b = perp_len / nose_len
-    cos_minor = -perp_vec[1] / perp_len
+    sin_b = abs(dot) / nose_len
+    cos_minor = perp_vec[1] / perp_len
     return sin_b, cos_minor
