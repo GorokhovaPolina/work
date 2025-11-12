@@ -4,6 +4,7 @@ _Основные папки:_
 - res_my_dataset - папка с json'ами после запуска face_main_ie.snapshot.stage0
 - mobile_head_pose_estimator - папка со всеми исполняемыми файлами
 
+
 _Структура mobile_head_pose_estimator:_
 
 - jsons - папка, где лежат snapshot'ы (snapshot\_\*.jspn)
@@ -12,10 +13,12 @@ _Структура mobile_head_pose_estimator:_
 - tests - папка: куда сохраняется картинка, полученная в результате запуска теста, где лежит mock_json с конкретными значениями (нет реального лица)
 - requirements.txt
 
+
 _Основные запускаемые файлы:_
 
 - main1.py
 - test_visualization.py
+
 
 _Основные инструменты:_
 
@@ -24,11 +27,12 @@ _Основные инструменты:_
 - visualizer.py
 - utils.py
 
+
 _Для запуска:_
 
 ```
 cd mobile_head_pose_estimator
-install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 Для запуска теста:
