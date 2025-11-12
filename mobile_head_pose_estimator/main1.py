@@ -7,13 +7,6 @@ import numpy as np
 from estimator import MobileHeadPoseEstimator
 from visualizer import visualize
 
-def print_header():
-    print("\n" + "="*80)
-    print("    HPE EVALUATION — coeffs vs PnP (сравнение по PDF)")
-    print("    coeffs — как в C++ (sin_b, cos_minor) → геометрический метод")
-    print("    PnP — solvePnP + 3D модель (рекомендуется)")
-    print("="*80)
-
 def print_coeffs_result(name, result, gt=None):
     sin_b = result.get('sin_b', -8.0)
     cos_minor = result.get('cos_minor', -8.0)
@@ -54,8 +47,6 @@ def print_pnp_result(name, result, gt=None):
     return True
 
 def main():
-    print_header()
-
     # ДВА ЭСТИМАТОРА
     estimator_coeffs = MobileHeadPoseEstimator(mode='coeffs')
     estimator_pnp = MobileHeadPoseEstimator(mode='pnp')
@@ -91,7 +82,7 @@ def main():
         pnp_success = print_pnp_result(filename, result_pnp or {}, gt)
         if pnp_success: pnp_ok += 1
 
-        # === ВИЗУАЛИЗАЦИЯ (только PnP — он точный) ===
+        # === ВИЗУАЛИЗАЦИЯ ===
         img_path = json_path.replace('jsons', '../mydataset').replace('.json', '.jpg')
         if os.path.exists(img_path) and result_pnp and 'rvec' in result_pnp:
             img = cv2.imread(img_path)
