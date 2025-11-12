@@ -98,34 +98,18 @@ def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
     cv2.line(img, nose, p(1), (0,255,0), 3)
     cv2.line(img, nose, p(2), (255,0,0), 3)
 
-    # === ПОДПИСЬ ===
-    text = f"Yaw: {yaw_deg:+.1f}°  Pitch: {pitch_deg:+.1f}°  Roll: {roll_deg:+.1f}°"
-    cv2.putText(img, text, (10, 35), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 0), 2)
-    cv2.putText(img, "Head Pose Estimation", (10, img.shape[0]-15), cv2.FONT_HERSHEY_DUPLEX, 0.8, (200, 255, 255), 2)
-
-    return img
-
 def visualize(img, nose, result):
     """УНИВЕРСАЛЬНАЯ ВИЗУАЛИЗАЦИЯ ПО УГЛАМ"""
-    if img is None:
-        return None
-    
     if 'yaw' in result and 'pitch' in result and 'roll' in result:
         yaw, pitch, roll = result['yaw'], result['pitch'], result['roll']
     elif 'sin_b' in result:
         sin_b = result['sin_b']
         cos_minor = result['cos_minor']
-        if sin_b == -8.0:
-            return None
+        if sin_b == -8.0: return
         pitch = np.degrees(np.arcsin(sin_b))
         yaw = np.degrees(np.arccos(cos_minor)) if abs(cos_minor) <= 1 else 0
         roll = 0
     else:
-        return None
-    
-    img_out = draw_perfect_cone_by_angles(img.copy(), nose, yaw, pitch, roll)
-    if img_out.dtype != np.uint8:
-        img_out = np.clip(img_out, 0, 255).astype(np.uint8)
-    return img_out
+        return
 
-    # draw_perfect_cone_by_angles(img, nose, yaw, pitch, roll)
+    draw_perfect_cone_by_angles(img, nose, yaw, pitch, roll)

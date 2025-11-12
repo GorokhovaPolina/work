@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from estimator import MobileHeadPoseEstimator
 from visualizer import visualize
+from pose_calculator import GeometricPoseCalculator
 
 def print_coeffs_result(name, result, gt=None):
     sin_b = result.get('sin_b', -8.0)
@@ -82,9 +83,12 @@ def main():
         pnp_success = print_pnp_result(filename, result_pnp or {}, gt)
         if pnp_success: pnp_ok += 1
 
+        calculator = GeometricPoseCalculator()
+        result_geom = calculator.calculate_pose(data)
+
         # === ВИЗУАЛИЗАЦИЯ ===
         img_path = json_path.replace('jsons', '../mydataset').replace('.json', '.jpg')
-        if os.path.exists(img_path) and result_pnp and 'rvec' in result_pnp:
+        if os.path.exists(img_path) and result_geom:
             img = cv2.imread(img_path)
             nose = tuple(map(int, data['props']['kp_nose_tip']))
             visualize(img, nose, result_pnp)
