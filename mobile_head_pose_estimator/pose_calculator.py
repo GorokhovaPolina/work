@@ -59,12 +59,6 @@ class GeometricPoseCalculator:
             mid = (le + re) / 2.0
             nose_vec = no - mid
             ipd = max(1.0, np.linalg.norm(eye_vec))
-
-            # НОВАЯ ЛОГИКА PITCH:
-            # Используем относительное положение носа к линии глаз
-            # Если нос на одной линии с глазами -> pitch = 0
-            # Если нос сильно ниже -> положительный pitch (голова опущена)
-            # Если нос сильно выше -> отрицательный pitch (голова поднята)
             
             # Нормализуем вертикальное смещение
             vertical_ratio = nose_vec[1] / ipd
@@ -72,7 +66,7 @@ class GeometricPoseCalculator:
             # Эмпирическая калибровка: 
             # vertical_ratio ~ 0.1-0.3 для прямого взгляда (зависит от анатомии)
             # Вычитаем базовое смещение для прямого взгляда
-            baseline_vertical = 0.3  # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            baseline_vertical = 0.3  # variable!
             calibrated_vertical = vertical_ratio - baseline_vertical
             
             pitch = -calibrated_vertical * 60.0  # инвертируем и масштабируем
@@ -104,8 +98,6 @@ class GeometricPoseCalculator:
         if mode == 'geom':
             return _geom_estimate(left_eye, right_eye, nose)
 
-        # Default: try solvePnP (but be robust and fallback to geom on any failure)
-        # prepare image points and camera matrix
         image_points = np.array([left_eye, right_eye, nose], dtype=np.float64)
         model_points = getattr(self, 'model_points', None)
         if model_points is None:
@@ -120,17 +112,14 @@ class GeometricPoseCalculator:
         dist = np.zeros((4,1), dtype=np.float64)
 
         try:
-            # Try solvePnP. In some environments OpenCV expects different shapes/dtypes, so use the common (N,3) model and (N,2) image points
             success, rvec, tvec = cv2.solvePnP(model_points.astype(np.float64),
                                                 image_points.astype(np.float64),
                                                 K, dist, flags=cv2.SOLVEPNP_ITERATIVE)
             if not success:
                 raise RuntimeError("solvePnP returned False")
 
-            # convert to rotation matrix and Euler
             R, _ = cv2.Rodrigues(rvec)
 
-            # rotation_matrix_to_euler must exist in module
             angles_rad = rotation_matrix_to_euler(R)  # returns [pitch_rad, yaw_rad, roll_rad] per convention
             pitch = math.degrees(angles_rad[0])
             yaw = math.degrees(angles_rad[1])
@@ -155,7 +144,6 @@ class GeometricPoseCalculator:
             }
 
         except Exception as e:
-            # On any failure, fallback to geometric estimate — do not raise
             geom = _geom_estimate(left_eye, right_eye, nose)
             geom['error'] = f'solvePnP failed: {e}'
             return geom

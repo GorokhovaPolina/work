@@ -1,5 +1,4 @@
-﻿# main.py
-import glob
+﻿import glob
 import os
 import json
 import cv2
