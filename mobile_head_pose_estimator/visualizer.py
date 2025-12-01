@@ -26,7 +26,7 @@ def euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg):
 
 def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
                                 length=180, radius=55, segments=64,
-                                base_color=(0, 0, 0),  # Желтый у основания
+                                base_color=(0, 0, 0),  # Черный у основания
                                 tip_color=(255, 255, 255),  # Белый у вершины
                                 gradient=True):
     R = euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg)
