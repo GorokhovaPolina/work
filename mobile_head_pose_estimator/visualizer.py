@@ -22,7 +22,7 @@ def euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg):
     Rz = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
     Ry = np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]])
     Rx = np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
-    return Rz @ Ry @ Rx
+    return Rx @ Ry @ Rz
 
 def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
                                 length=180, radius=55, segments=64,

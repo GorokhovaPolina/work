@@ -70,7 +70,7 @@ class GeometricPoseCalculator:
             calibrated_vertical = vertical_ratio - baseline_vertical
             
             pitch = -calibrated_vertical * 60.0  # инвертируем и масштабируем
-            yaw = (nose_vec[0] / ipd) * 40.0
+            yaw = (nose_vec[0] / ipd) * 60.0
 
             # clamp angles
             yaw = max(-180.0, min(180.0, yaw))
