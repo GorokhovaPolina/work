@@ -66,10 +66,10 @@ class GeometricPoseCalculator:
             # Эмпирическая калибровка: 
             # vertical_ratio ~ 0.1-0.3 для прямого взгляда (зависит от анатомии)
             # Вычитаем базовое смещение для прямого взгляда
-            baseline_vertical = 0.3  # variable!
+            baseline_vertical = 0.45  # variable!
             calibrated_vertical = vertical_ratio - baseline_vertical
             
-            pitch = -calibrated_vertical * 60.0  # инвертируем и масштабируем
+            pitch = -calibrated_vertical * 80.0  # инвертируем и масштабируем
             yaw = (nose_vec[0] / ipd) * 60.0
 
             # clamp angles
