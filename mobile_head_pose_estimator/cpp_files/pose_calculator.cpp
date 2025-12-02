@@ -22,10 +22,10 @@ std::map<std::string, double> GeometricPoseCalculator::geom_estimate(const cv::P
     double ipd = std::max(1.0, cv::norm(eye_vec));
 
     double vertical_ratio = nose_vec.y / ipd;
-    double baseline_vertical = 0.3;
+    double baseline_vertical = 0.45;
     double calibrated_vertical = vertical_ratio - baseline_vertical;
-    double pitch = -calibrated_vertical * 60.0;
-    double yaw = (nose_vec.x / ipd) * 40.0;
+    double pitch = -calibrated_vertical * 80.0;
+    double yaw = (nose_vec.x / ipd) * 60.0;
 
     yaw = std::max(-180.0, std::min(180.0, yaw));
     pitch = std::max(-90.0, std::min(90.0, pitch));
