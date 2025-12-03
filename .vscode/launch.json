@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/polinagorokhova/Desktop/работа/work/mobile_head_pose_estimator",
+      "program": "/Users/polinagorokhova/Desktop/работа/work/mobile_head_pose_estimator/build/Debug/outDebug"
+    }
+  ]
+}

@@ -16,20 +16,32 @@ def euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg):
     yaw = math.radians(yaw_deg)
     pitch = math.radians(pitch_deg)
     roll = math.radians(roll_deg)
-    cy, sy = math.cos(yaw), math.sin(yaw)
-    cp, sp = math.cos(pitch), math.sin(pitch)
-    cr, sr = math.cos(roll), math.sin(roll)
-    Rz = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
-    Ry = np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]])
-    Rx = np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
-    return Rx @ Ry @ Rz
+
+    cx, sx = math.cos(yaw), math.sin(yaw)    # для вращения вокруг X
+    cy, sy = math.cos(pitch), math.sin(pitch) # для вращения вокруг Y
+    cz, sz = math.cos(roll), math.sin(roll)   # для вращения вокруг Z
+
+    Rx = np.array([[1,   0,   0],
+                   [0,  cx, -sx],
+                   [0,  sx,  cx]], dtype=float)
+
+    Ry = np.array([[ cy, 0, sy],
+                   [  0, 1,  0],
+                   [-sy, 0, cy]], dtype=float)
+
+    Rz = np.array([[cz, -sz, 0],
+                   [sz,  cz, 0],
+                   [ 0,   0, 1]], dtype=float)
+
+    return Rz @ Ry @ Rx
 
 def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
                                 length=180, radius=55, segments=64,
                                 base_color=(0, 0, 0),  # Черный у основания
                                 tip_color=(255, 255, 255),  # Белый у вершины
                                 gradient=True):
-    R = euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg)
+    # R = euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg)
+    R = euler_to_rotation_matrix(-pitch_deg, -roll_deg, -yaw_deg)
 
     base_points = []
     for i in range(segments):
@@ -86,6 +98,52 @@ def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
     cv2.line(img, nose, p(0), (0,0,255), 3)
     cv2.line(img, nose, p(1), (0,255,0), 3)
     cv2.line(img, nose, p(2), (255,0,0), 3)
+
+# def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
+#                                 length=180, radius=55, segments=64,
+#                                 base_color=(0, 0, 0),  # Черный у основания
+#                                 tip_color=(255, 255, 255)):
+#     # Локальная геометрия
+#     angles = np.linspace(0, 2 * np.pi, segments, endpoint=False)
+#     circle = np.stack([radius * np.cos(angles),
+#                        radius * np.sin(angles),
+#                        np.full_like(angles, length)], axis=1)
+
+#     tip = np.array([0.0, 0.0, 0.0])
+#     pts = np.vstack([tip, circle])  # (segments+1, 3)
+
+#     # Поворот
+#     R = euler_to_rotation_matrix(yaw_deg, pitch_deg, roll_deg)
+#     cone_rotated = (R @ pts.T).T  # (N,3)
+
+#     # Ортографическая проекция: просто отбрасываем Z
+#     pts2d = cone_rotated[:, :2]
+
+#     # В пикселях: сохраняем nose как проекцию вершины
+#     pts2d_pixels = []
+#     for pt in pts2d:
+#         x = int(round(nose[0] + pt[0]))
+#         y = int(round(nose[1] - pt[1]))  # минус: 3D Y вверх -> в image y вниз
+#         pts2d_pixels.append([x, y])
+#     pts2d_pixels = np.array(pts2d_pixels, np.int32)
+
+#     tip_pt = tuple(pts2d_pixels[0])
+#     base_pts = pts2d_pixels[1:]
+
+#     overlay = img.copy()
+
+#     # Основание
+#     cv2.fillPoly(overlay, [base_pts], base_color)
+
+#     # Грани с градиентом (как у вас было)
+#     for i, pt in enumerate(base_pts):
+#         next_pt = base_pts[(i + 1) % len(base_pts)]
+#         tri = np.array([tip_pt, tuple(pt), tuple(next_pt)], dtype=np.int32)
+#         depth = float(i) / len(base_pts)
+#         col = tuple(int(base_color[j] * (1 - depth) + tip_color[j] * depth) for j in range(3))
+#         cv2.fillConvexPoly(overlay, tri, col)
+
+#     cv2.addWeighted(overlay, 0.7, img, 0.3, 0, img)
 
 def visualize(img, nose, result):
     """УНИВЕРСАЛЬНАЯ ВИЗУАЛИЗАЦИЯ ПО УГЛАМ"""

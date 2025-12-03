@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from json_parser import load_keypoints_from_json
 from pnp_estimator import PnPEstimator
-from visualizer import visualize
+from visualizer1 import visualize
 
 def test_cone_visualization():
     # === ЗАГРУЗКА ===

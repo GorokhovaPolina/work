@@ -1,0 +1,17 @@
+{
+  "image_size": [147, 181],
+  "props": {
+    "kp_nose_tip": [78, 108],
+    "kp_eye_left_inner": [67, 86],
+    "kp_eye_left_outer": [48, 87],
+    "kp_eye_right_inner": [90, 85],
+    "kp_eye_right_outer": [108, 85],
+    "kp_mouth_left": [94, 127],
+    "kp_mouth_right": [60, 127]
+  },
+  "ground_truth": {
+    "yaw": 2.5,
+    "pitch": -10.0,
+    "roll": -2.0
+  }
+}

@@ -38,7 +38,8 @@ class GeometricPoseCalculator:
             v = no - mid
             norm = np.linalg.norm(v)
             if norm < 1e-6:
-                return -8.0, 0.0
+                raise ValueError('invalid geom: nose coincides with eye mid point')
+                # return -8.0, 0.0
             sin_b = float(v[1] / norm)      # image y grows down => nose below eyes => positive
             sin_b = max(-1.0, min(1.0, sin_b))
             cos_minor = float(math.sqrt(max(0.0, 1.0 - sin_b * sin_b)))
@@ -89,10 +90,11 @@ class GeometricPoseCalculator:
             }
         # If user explicitly asks for 'coeffs' -> return sin_b, cos_minor
         if mode == 'coeffs':
-            sin_b, cos_minor = _find_rotation_coeffs(left_eye, right_eye, nose)
-            if sin_b == -8.0:
-                return {'error': 'invalid geometry'}
-            return {'sin_b': sin_b, 'cos_minor': cos_minor}
+            try: 
+                sin_b, cos_minor = _find_rotation_coeffs(left_eye, right_eye, nose)
+                return {'sin_b': sin_b, 'cos_minor': cos_minor}
+            except ValueError as e: 
+                return {'error': str(e)}
 
         # If user asked explicit geometric estimation
         if mode == 'geom':

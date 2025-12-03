@@ -4,7 +4,7 @@ import json
 import cv2
 import numpy as np
 from estimator import MobileHeadPoseEstimator
-from visualizer import visualize
+from visualizer1 import visualize
 from pose_calculator import GeometricPoseCalculator
 
 def print_coeffs_result(name, result, gt=None):
@@ -51,12 +51,12 @@ def main():
     estimator_coeffs = MobileHeadPoseEstimator(mode='coeffs')
     estimator_pnp = MobileHeadPoseEstimator(mode='pnp')
 
-    json_files = sorted(glob.glob("jsons_Nastya/snapshot_*.json"))
+    json_files = sorted(glob.glob("jsons_Pasha/snapshot_*.json"))
     if not json_files:
-        print("ОШИБКА: Нет JSON в jsons_Nastya/")
+        print("ОШИБКА: Нет JSON в jsons_Pasha/")
         return
 
-    os.makedirs("output_Nastya", exist_ok=True)
+    os.makedirs("output_Pasha", exist_ok=True)
     total = len(json_files)
     coeffs_ok = pnp_ok = 0
 
@@ -86,12 +86,12 @@ def main():
         result_geom = calculator.calculate_pose(data)
         
         # === ВИЗУАЛИЗАЦИЯ ===
-        img_path = json_path.replace('jsons_Nastya', 'imgs_Nastya').replace('.json', '.jpg')
+        img_path = json_path.replace('jsons_Pasha', 'imgs_Pasha').replace('.json', '.jpg')
         if os.path.exists(img_path) and result_geom:
             img = cv2.imread(img_path)
             nose = tuple(map(int, data['props']['kp_nose_tip']))
             visualize(img, nose, result_pnp)
-            out = f"output_Nastya/{filename}_vis.jpg"
+            out = f"output_Pasha/{filename}_vis.jpg"
             cv2.imwrite(out, img)
             print(f"   КОНУС: {out} (по направлению головы)\n")
         else:
