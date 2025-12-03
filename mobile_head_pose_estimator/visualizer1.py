@@ -110,7 +110,7 @@ def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
 
     # Tip glow
     glow = img.copy()
-    cv2.circle(glow, tip_pt, 10, tip_color, -1)
+    # cv2.circle(glow, tip_pt, 10, tip_color, -1)
     cv2.addWeighted(glow, 0.3, img, 0.7, 0, img)
     cv2.circle(img, tip_pt, 4, tip_color, -1)
 
