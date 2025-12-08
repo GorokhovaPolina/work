@@ -38,12 +38,12 @@ def print_pnp_result(name, result, gt=None):
         err_r = abs(roll - gt['roll'])
         mae = (err_y + err_p + err_r) / 3
         status = "EXCELLENT" if mae < 2 else "GOOD" if mae < 5 else "WARNING"
-        print(f"{name:<20} | PnP    → Yaw: {yaw:+6.2f}° (Δ{err_y:4.2f})")
+        print(f"{name:<20} | Geom   → Yaw: {yaw:+6.2f}° (Δ{err_y:4.2f})")
         print(f"{'':<20} |          Pitch: {pitch:+6.2f}° (Δ{err_p:4.2f})")
         print(f"{'':<20} |          Roll:  {roll:+6.2f}° (Δ{err_r:4.2f})")
         print(f"{'':<20} | → MAE = {mae:.2f}° [{status}]")
     else:
-        print(f"{name:<20} | PnP    → Yaw: {yaw:+6.2f}° | Pitch: {pitch:+6.2f}° | Roll: {roll:+6.2f}°")
+        print(f"{name:<20} | Geom   → Yaw: {yaw:+6.2f}° | Pitch: {pitch:+6.2f}° | Roll: {roll:+6.2f}°")
     return True
 
 def main():
@@ -100,8 +100,8 @@ def main():
     # === ИТОГИ ===
     print("="*80)
     print(f"ГОТОВО! Обработано: {total}")
-    print(f"   coeffs         → успешно: {coeffs_ok}/{total}")
-    print(f"   PnP (solvePnP) → успешно: {pnp_ok}/{total}")
+    print(f"   coeffs   → успешно: {coeffs_ok}/{total}")
+    print(f"   Geom     → успешно: {pnp_ok}/{total}")
     print("="*80)
 
 if __name__ == "__main__":
