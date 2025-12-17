@@ -46,7 +46,7 @@ class GeometricPoseCalculator:
             return sin_b, cos_minor
 
         # Helper: pure geometric estimation (2D)
-        def _geom_estimate(le, re, no):
+        def _geom_estimate1(le, re, no):
             le = np.array(le, dtype=float)
             re = np.array(re, dtype=float)
             no = np.array(no, dtype=float)
@@ -88,6 +88,98 @@ class GeometricPoseCalculator:
                 'cos_minor': float(cos_minor),
                 'method': 'geom'
             }
+
+        def _geom_estimate(le, re, no, lm):
+            le = np.array(le, dtype=float)
+            re = np.array(re, dtype=float)
+            no = np.array(no, dtype=float)
+    
+            # roll из линии глаз
+            eye_vec = re - le
+            dx = eye_vec[0]
+            dy = eye_vec[1]
+            roll = math.degrees(math.atan2(dy, dx))
+    
+            mid = (le + re) / 2.0
+            nose_vec = no - mid
+            ipd = max(1.0, np.linalg.norm(eye_vec))
+
+
+
+
+
+            mouth_left1 = tuple(lm.get('kp_mouth_left')) if 'kp_mouth_left' in lm else None
+            mouth_right1 = tuple(lm.get('kp_mouth_right')) if 'kp_mouth_right' in lm else None
+            # НОВЫЙ МЕТОД: используем пропорцию "нос:рот = 1:3"
+            if True:
+                mouth_left = np.array(mouth_left1, dtype=float)
+                mouth_right = np.array(mouth_right1, dtype=float)
+                mouth_center = (mouth_left + mouth_right) / 2.0
+        
+                # Длина носа (от средней точки глаз до кончика носа)
+                nose_length = np.linalg.norm(no - mid)
+        
+                # Расстояние от носа до центра рта
+                nose_to_mouth = np.linalg.norm(mouth_center - no)
+        
+                if nose_to_mouth < 0:
+                    # Идеальное соотношение: нос = 3 × (нос->рот)
+                    ideal_ratio = 3.0
+            
+                    # Текущее соотношение
+                    current_ratio = nose_length / nose_to_mouth
+            
+                    # Отклонение от идеальной пропорции
+                    # Если нос слишком длинный относительно расстояния до рта -> лицо задирается (pitch > 0)
+                    # Если слишком короткий -> опускается (pitch < 0)
+                    ratio_deviation = current_ratio - ideal_ratio
+            
+                    # Преобразуем отклонение в угол
+                    # Эмпирический коэффициент: отклонение на 0.1 дает примерно 10 градусов
+                    pitch = -ratio_deviation * 100.0  
+            
+                    # Также учитываем абсолютное вертикальное смещение как дополнительный фактор
+                    # Нормализуем вертикальное смещение носа относительно IPD для тонкой настройки
+                    vertical_ratio = nose_vec[1] / ipd
+                    baseline_vertical = 0.45
+                    pitch_adjustment = -(vertical_ratio - baseline_vertical) * 30.0
+            
+                    pitch = pitch * 0.7 + pitch_adjustment * 0.3  # взвешенное среднее
+            
+                else:
+                    # fallback
+                    vertical_ratio = nose_vec[1] / ipd
+                    baseline_vertical = 0.6
+                    calibrated_vertical = vertical_ratio - baseline_vertical
+                    pitch = -calibrated_vertical * 80.0
+            else:
+                # fallback если нет точек рта
+                vertical_ratio = nose_vec[1] / ipd
+                baseline_vertical = 0.6
+                calibrated_vertical = vertical_ratio - baseline_vertical
+                pitch = -calibrated_vertical * 80.0
+    
+            # Горизонтальный yaw остается прежним
+            yaw = (nose_vec[0] / ipd) * 60.0
+    
+            # clamp angles
+            yaw = max(-180.0, min(180.0, yaw))
+            pitch = max(-90.0, min(90.0, pitch))
+            roll = (roll + 180.0) % 360.0 - 180.0
+    
+            sin_b, cos_minor = _find_rotation_coeffs(le, re, no)
+    
+            return {
+                'yaw': float(yaw),
+                'pitch': float(pitch),
+                'roll': float(roll),
+                'sin_b': float(sin_b),
+                'cos_minor': float(cos_minor),
+                'method': 'geom',
+                'nose_length': float(nose_length) if 'nose_length' in locals() else 0.0,
+                'nose_to_mouth': float(nose_to_mouth) if 'nose_to_mouth' in locals() else 0.0,
+                'ratio': float(current_ratio) if 'current_ratio' in locals() else 0.0
+            }
         # If user explicitly asks for 'coeffs' -> return sin_b, cos_minor
         if mode == 'coeffs':
             try: 
@@ -98,13 +190,13 @@ class GeometricPoseCalculator:
 
         # If user asked explicit geometric estimation
         if mode == 'geom':
-            return _geom_estimate(left_eye, right_eye, nose)
+            return _geom_estimate(left_eye, right_eye, nose, lm)
 
         image_points = np.array([left_eye, right_eye, nose], dtype=np.float64)
         model_points = getattr(self, 'model_points', None)
         if model_points is None:
             # if no 3D model defined, fallback to geom
-            return _geom_estimate(left_eye, right_eye, nose)
+            return _geom_estimate(left_eye, right_eye, nose, lm)
 
         focal_length = float(w) if w else 1.0
         center = (w / 2.0 if w else 0.0, h / 2.0 if h else 0.0)
@@ -146,7 +238,7 @@ class GeometricPoseCalculator:
             }
 
         except Exception as e:
-            geom = _geom_estimate(left_eye, right_eye, nose)
+            geom = _geom_estimate(left_eye, right_eye, nose, lm)
             geom['error'] = f'solvePnP failed: {e}'
             return geom
 
