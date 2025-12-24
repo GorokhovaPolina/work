@@ -149,18 +149,18 @@ class GeometricPoseCalculator:
                 else:
                     # fallback
                     vertical_ratio = nose_vec[1] / ipd
-                    baseline_vertical = 0.6
+                    baseline_vertical = 0.5
                     calibrated_vertical = vertical_ratio - baseline_vertical
                     pitch = -calibrated_vertical * 80.0
             else:
                 # fallback если нет точек рта
                 vertical_ratio = nose_vec[1] / ipd
-                baseline_vertical = 0.6
+                baseline_vertical = 0.5
                 calibrated_vertical = vertical_ratio - baseline_vertical
                 pitch = -calibrated_vertical * 80.0
     
             # Горизонтальный yaw остается прежним
-            yaw = (nose_vec[0] / ipd) * 60.0
+            yaw = (nose_vec[0] / ipd) * 80.0
     
             # clamp angles
             yaw = max(-180.0, min(180.0, yaw))

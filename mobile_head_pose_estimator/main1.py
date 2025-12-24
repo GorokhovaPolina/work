@@ -31,7 +31,7 @@ def print_pnp_result(name, result, gt=None):
     yaw = result['yaw']
     pitch = result['pitch']
     roll = result['roll']
-    
+    mae = 0
     if gt:
         err_y = abs(yaw - gt['yaw'])
         err_p = abs(pitch - gt['pitch'])
@@ -44,7 +44,9 @@ def print_pnp_result(name, result, gt=None):
         print(f"{'':<20} | → MAE = {mae:.2f}° [{status}]")
     else:
         print(f"{name:<20} | PnP    → Yaw: {yaw:+6.2f}° | Pitch: {pitch:+6.2f}° | Roll: {roll:+6.2f}°")
-    return True
+    return mae
+
+# def write_pnp_result
 
 def main():
     # ДВА ЭСТИМАТОРА
@@ -59,6 +61,8 @@ def main():
     os.makedirs("output", exist_ok=True)
     total = len(json_files)
     coeffs_ok = pnp_ok = 0
+    pnp_with_gt = 0
+    whole_mae = 0
 
     for json_path in json_files:
         filename = os.path.basename(json_path).replace('.json', '')
@@ -71,6 +75,8 @@ def main():
             continue
 
         gt = data.get("ground_truth")
+        if gt:
+            pnp_with_gt += 1
 
         # === coeffs ===
         result_coeffs = estimator_coeffs.process_json(json_path)
@@ -79,8 +85,11 @@ def main():
 
         # === PnP ===
         result_pnp = estimator_pnp.process_json(json_path)
-        pnp_success = print_pnp_result(filename, result_pnp or {}, gt)
-        if pnp_success: pnp_ok += 1
+        mae = 0
+        mae = print_pnp_result(filename, result_pnp or {}, gt)
+        if result_pnp: 
+            pnp_ok += 1
+            whole_mae += mae
 
         calculator = GeometricPoseCalculator()
         result_geom = calculator.calculate_pose(data)
@@ -102,6 +111,8 @@ def main():
     print(f"ГОТОВО! Обработано: {total}")
     print(f"   coeffs         → успешно: {coeffs_ok}/{total}")
     print(f"   PnP (solvePnP) → успешно: {pnp_ok}/{total}")
+    print(f"   MAE посчитано для {pnp_with_gt} картинок")
+    print(f"   Total MAE = {round(whole_mae/pnp_with_gt, 4)}")
     print("="*80)
 
 if __name__ == "__main__":
