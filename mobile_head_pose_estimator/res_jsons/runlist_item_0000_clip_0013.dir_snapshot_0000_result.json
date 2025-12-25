@@ -1,0 +1,34 @@
+{
+  "filename": "runlist_item_0000_clip_0013.dir_snapshot_0000",
+  "source_json": "../res_Nastya_upd_dataset\\runlist_item_0000\\clip_0013.dir\\snapshot_0000.json",
+  "pnp_result": {
+    "yaw": -8.152661179505753,
+    "pitch": 0.45959327939709915,
+    "roll": -2.920721521000388,
+    "sin_b": 0.9793983476900748,
+    "cos_minor": 0.20193780364743827,
+    "method": "geom",
+    "nose_length": 123.80049474860753,
+    "nose_to_mouth": NaN,
+    "ratio": 0.0
+  },
+  "coeffs_result": {
+    "sin_b": 0.9793983476900748,
+    "cos_minor": 0.20193780364743827
+  },
+  "geometric_result": {
+    "error": "missing landmarks"
+  },
+  "ground_truth": {
+    "yaw": 16.0,
+    "pitch": 0.0,
+    "roll": 11.0
+  },
+  "gt_source": "IMG_0001_20.json",
+  "errors": {
+    "yaw_error": 24.152661179505753,
+    "pitch_error": 0.45959327939709915,
+    "roll_error": 13.920721521000388,
+    "mae": 12.844325326634413
+  }
+}
