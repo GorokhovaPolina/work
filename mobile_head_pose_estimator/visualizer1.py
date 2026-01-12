@@ -40,7 +40,6 @@ def draw_perfect_cone_by_angles(img, nose, yaw_deg, pitch_deg, roll_deg,
     if rvec is not None and tvec is not None and K is not None and dist is not None:
         # === Perspective projection mode ===
         # Base at Z=0 (nose), tip at Z=length (away) or -length (toward camera)
-        # Если конус выглядит не в ту сторону, попробуйте length = -180
         base_points = []
         for i in range(segments):
             angle = 2 * math.pi * i / segments
