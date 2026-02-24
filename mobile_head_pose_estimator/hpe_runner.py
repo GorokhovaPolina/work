@@ -346,6 +346,7 @@ def main():
     print(f"Обработано файлов: {total}")
     print(f"  coeffs метод:    {coeffs_ok}/{total} успешно")
     print(f"  PnP метод:       {pnp_ok}/{total} успешно")
+    print(f"mae: {files_with_gt}")
     
     if paths['calculate_mae'] and files_with_gt > 0:
         avg_mae = total_mae / files_with_gt
