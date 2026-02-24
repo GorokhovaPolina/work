@@ -1,0 +1,33 @@
+DFKI Head pose dataset
+This dataset is composed of a video sequence with 1263 frames. 
+It was recorded using an IR camera, while the groundtruth was acquired using an optical motion capture device.
+
+Files:
+This folder contains the following files:
+*calib.txt: 		calibration data
+*groudhtruth.txt: 	groundtruth data
+*sequences:		1263 .png images
+
+The groundtruth data is provided in the camera coordinate system, defined by the right-hand rule and with axes:
+x: horizontal axis, oriented from left to right
+y: vertical axis, pointing downwards
+z: pointing inwards, parallel to the optical axis of the camera
+The data is arranged as follows:
+-Translation(in mm): From column 1 to column 3 [translation_x	translation_y	translation_z]
+-Rotation: From column 4 to column 12 [rotMatrix_11	rotMatrix_21	rotMatrix_31	rotMatrix_12	rotMatrix_22	rotMatrix_32	rotMatrix_13	rotMatrix_23	rotMatrix_33]
+rotation_Matrix = [rotMatrix_11	rotMatrix_12	rotMatrix_13;
+		   rotMatrix_21	rotMatrix_22	rotMatrix_23;	
+		   rotMatrix_31	rotMatrix_32	rotMatrix_33]
+
+Citation:
+This database is made available for research purposes only. In case of using the data provided here, please cite our work as follows:
+@article{diazbarros2018real,
+  title = {Real-Time Head Pose Estimation by Tracking and Detection of Keypoints and Facial Landmarks},
+  author = {Diaz Barros, Jilliam Maria and Mirbach, Bruno and Garcia, Frederic and Varanasi, Kiran and Stricker, Didier},
+  journal = {Communications in Computer and Information Science},
+  year = {2018},
+  publisher = {Springer}
+}
+
+Contact information:
+For more information, please contact Jilliam Diaz Barros, jilliam_maria.diaz_barros@dfki.de
